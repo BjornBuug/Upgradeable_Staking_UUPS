@@ -6,9 +6,8 @@ pragma solidity 0.8.20;
 import "openzeppelin/token/ERC20/ERC20.sol";
 
 
-
-contract FaucetTokens {
-        error TooManyRequest;
+contract FaucetTokens is ERC20 {
+        error TooManyRequest();
 
         // Keep track of each users withdrawls
         mapping (address => uint256) public withdrawlsTrackers;
@@ -21,12 +20,12 @@ contract FaucetTokens {
             uint256 _withdrawPerRequest
         )ERC20("Faucet Tokens","FCT") {
             coolDownPeriod = _coolDownPeriod;
-            amountPerRequest = _amountPerRequest;
-            _mint(msg.sender, InitialSupply);
+            amountPerRequest = _withdrawPerRequest;
+            _mint(msg.sender, _initialSupply);
         }
 
 
-        ///@dev function allow user to request tokens each 24H 
+        ///@dev function allow user to request tokens each 24H
         function faucet() external {
 
             // Verify is user tries to request more than one request withing the one cooldown period
