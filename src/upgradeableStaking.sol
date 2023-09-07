@@ -11,27 +11,15 @@ import "openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20
 import "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "./Math.sol";
 
 
 
 
-/** "BUILD FROM SMALL FEATURES TO COMPLEX one"
-    Project Rebuild plan:
-                  - Important Interfaces and understand each one them and what it purposes [x] 
-                  - Initialize the contract [x]
-                  - Stake functions & unStake Functions.
-                  - What State variables do we need to create stake & unstake functions:
-                  1- Keep track of all staked tokens. [x]
-                  2- Keep track of all stakers deposits & withdraw, to do so: we need to create a mapping from msg.sender => struct
-                  The struct will contain the stakers info to update [x]
-                  - create a function to updateRewards() & claimRewards [x]
-                  - To do: Override pause and unpause functions +  Getters(getPendingRewards function + getStaker Info function)
-
- */
-
-
-/// @notice This is a UUPS smart contract that allow user to stake tokens and get rewarded.
-
+/// @title Staking Smart Contract
+/// @notice A UUPS (Universal Upgradeable Proxy Standard) compliant smart contract that enables users to stake, unstake, and claim tokens.
+/// @author Ouail Tayarth
+/// @dev The contract is upgradeable and includes pausability features.
 
 contract UpgradeableStaking is Initializable,
         OwnableUpgradeable,
@@ -46,13 +34,14 @@ contract UpgradeableStaking is Initializable,
     //***************************** ERROR ************/
     error ERR_CANNOT_BE_ZERO();
     error ERR_CANNOT_UPDATE_REWARDS_YET();
+    error ERR_CALLER_NOT_STAKER;
 
 
 
     //***************************** EVENTS ************/
     event Staked(address indexed staker,
                  uint256 indexed amount,
-                 uint256 indexed timeStamp); // What is indexed and why it used for.
+                 uint256 indexed timeStamp); 
 
     event Unstaked(address indexed staker,
                  uint256 indexed amount,
@@ -60,15 +49,16 @@ contract UpgradeableStaking is Initializable,
 
     event Claimed(address indexed claimAmt,
                   uint256 indexed amount,
-                  uint256 indexed timeStamp;             
+                  uint256 indexed timeStamp);             
 
 
     uint256 public totalStakedTokens;
 
     // Keep track of all stakers Info
     struct StakerInfo {
+        address staker;
         uint256 amountStaked;
-        uint256 lastTimestamp; // Last time the staker stakes tokens.
+        uint256 lastTimestamp;
         uint256 DebtRewards;
     }
 
@@ -78,20 +68,30 @@ contract UpgradeableStaking is Initializable,
     uint256 public rewardsEndTime;
     uint256 public rewardsStartTime;
     uint256 public lastUpdateTime;
-    uint256 public rewardsRate;
+    uint256 public rewardRate;
     
     mapping (address => uint256) public userRewardsPerTokensPaid;
     
 
 
-    ///@dev To prevent an attacker to Initialize the contract when the contract is deployed and unInitilize
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
+    // ///@dev To prevent an attacker to Initialize the contract when the contract is deployed and unInitilize
+    // /// @custom:oz-upgrades-unsafe-allow constructor
+    // constructor() {
+    //     _disableInitializers();
+    // }
+
+
+    /// @dev Modifier to check if the caller is a staker.
+    modifier IsStaker() {
+        if(stakers[msg.sender].staker != msg.sender) {
+            revert ERR_CALLER_NOT_STAKER();
+        }
+        _;
     }
 
 
-    /// @dev Initialize function that runs only once
+    /// @notice Initializes the staking contract.
+    /// @param _token The ERC20 token for staking.
     function initilize(IERC20Upgradeable _token) external initializer {  
         __Ownable_init();
         __ERC20Pausable_init();
@@ -102,21 +102,20 @@ contract UpgradeableStaking is Initializable,
 
 
 
-    /**
-     * @dev Function to stake tokens
-     * @param _amount amount of stake tokens
-     * 
-     */
+    /// @notice Stakes tokens into the contract.
+    /// @param _amount The amount of tokens to stake.
      function stake(uint256 _amount) external whenNotPaused {
+        
         if(_amount <= 0) {
             revert ERR_CANNOT_BE_ZERO();
         }
 
-        StakerInfo storage staker = stakers[msg.sender];
+        StakerInfo storage stakerInfo = stakers[msg.sender];
         
-        rewardsHandler(staker);
+        rewardsHandler(stakerInfo);
 
-        staker.amountStaked += _amount;
+        stakerInfo.staker = msg.sender;
+        stakerInfo.amountStaked += _amount;
         totalStakedTokens += _amount;
 
         token.safeTransferFrom(msg.sender, address(this), _amount);
@@ -125,42 +124,59 @@ contract UpgradeableStaking is Initializable,
 
     }
     
-   }
 
 
-   /**
-     * @dev Function to stake tokens
-     * @param _amount amount of stake tokens
-     * 
-     */
-     // @audit-issue check if the caller is the staker
-     function UnstakeAndClaim(uint256 _amount) external whenNotPaused {
+
+    /// @notice Unstakes tokens
+    /// @param _amount The amount of tokens to unstake.
+     function Unstake(uint256 _amount) external whenNotPaused IsStaker {
+        
         if(_amount <= 0) {
             revert ERR_CANNOT_BE_ZERO();
         }
 
-        StakerInfo storage staker = stakers[msg.sender];
-        uint256 amountStaked = staker.amountStaked;
-        uint256 claimedRewards = staker.rewardDebt;
+        StakerInfo storage stakerInfo = stakers[msg.sender];
 
-        rewardsHandler(staker);
+        uint256 amountStaked = stakerInfo.amountStaked;
+
+        rewardsHandler(stakerInfo);
 
         amountStaked-= _amount;
         totalStakedTokens -= _amount;
 
         token.safeTransfer(msg.sender, _amount);
 
-        // ** Claim rewards **/
-         claimedRewards = 0; 
-        _mint(msg.sender, claimedRewards);// Let check the security aspect of including Claim in this function.
-
         emit Unstaked(msg.sender, _amount, block.timestamp);
-        emit Claimed(msg.sender, claimedRewards, block.timestamp);
-
     }
-    
 
-   ///@notice function that allow to update rewards rate & rewardsEndTime & rewardsstarttime
+
+
+    /// @notice Claim Rewards
+    /// @param _amount The amount of tokens to unstake.
+     function Claim(uint256 _amount) external IsStaker {
+        
+        if(_amount <= 0) {
+            revert ERR_CANNOT_BE_ZERO();
+        }
+
+        StakerInfo storage stakerInfo = stakers[msg.sender];
+
+        uint256 claimedRewards = stakerInfo.DebtRewards;
+
+        rewardsHandler(stakerInfo);
+
+        claimedRewards = 0;
+
+        _mint(msg.sender, claimedRewards);
+
+        emit Claimed(msg.sender, claimedRewards, block.timestamp);
+    }
+
+
+
+    /// @notice Updates the rewards rate and duration.
+    /// @param _amount The total rewards amount.
+    /// @param duration The rewards duration in seconds.
    function updateRewards(uint256 _amount, uint256 duration) external onlyOwner {
         
         // Check if the contract isn't giving rewards any more to be able to start a new update;
@@ -173,7 +189,7 @@ contract UpgradeableStaking is Initializable,
         }
 
         rewardsEndTime = block.timestamp + duration;
-        rewardsRate = _amount / duration;
+        rewardRate = _amount / duration;
         lastUpdateTime = block.timestamp;
         rewardsStartTime = block.timestamp;
 
@@ -181,12 +197,10 @@ contract UpgradeableStaking is Initializable,
     
 
 
-    /**
-     * @notice The reason why we have "pending rewards" because it will allow users to withdraw pending rewards if the contract is not dynamic or pausable
-     * @dev Function to handle rewards
-     * @param _amount amount of stake tokens
-     */
-    function rewardsHandler(stakerInfo storage stakerInfo) internal returns(uint256 totalPendingRewards) {
+    /// @dev Handles rewards calculations.
+    /// @param stakerInfo The staker's information.
+    /// @return totalPendingRewards The total pending rewards for the staker.
+    function rewardsHandler(StakerInfo storage stakerInfo) internal returns(uint256 totalPendingRewards) {
         // Check if the the the contract has staked tokens
         if(totalStakedTokens > 0) {
             // Create a function to calculate the user pending rewards and new rewards per tokens since the last time the user checked.
@@ -210,11 +224,14 @@ contract UpgradeableStaking is Initializable,
 
 
 
-
+    /// @dev Calculates rewards for a given staker.
+    /// @param stakerInfo The staker's information.
+    /// @param _staker The address of the staker.
+    /// @return totalPendingRewards, newRewardsPerToken The total pending rewards and the new rewards per token for the staker.
     function calculateRewards(StakerInfo storage stakerInfo, address _staker) 
                               internal returns(uint256 totalPendingRewards, uint256 newRewardsPerToken) {
 
-            if( totalStakerTokens > 0) {
+            if(totalStakedTokens > 0) {
 
             /*** @notice - (rewardRate * (_lastApplicableTime() - lastUpdateTime)): Calculate how much rewards has been accumulated since
                             the last applicable time.
@@ -235,14 +252,54 @@ contract UpgradeableStaking is Initializable,
 
             // How much new rewards Bob has earned on his staked since last time he checked (rewards rate, last timeStamp)
             // Or how much new rewards Bob has earned.
-            totalPendingRewards = (stakerInfo.stakedAmount * (newRewardPerToken - userRewardPerTokenPaid[msg.sender])) * 1 ether;
+            totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) * 1 ether;
 
-            }                                                               
+            }                                                                   
 
     }
 
 
-    function _lastApplicableTime() returns view internal(uint256) {
-        Math.min(block.timestamp, rewardsEndTime);
+    //***************  Getters    ******************/
+
+     /// @notice Returns the total pending rewards for a staker.
+    /// @param _stakerAddress The address of the staker.
+    /// @return totalPendingRewards The total pending rewards for the staker.
+    function getAllPendingRewards(address _stakerAddress) external view returns(uint256 totalPendingRewards) {
+        StakerInfo storage stakerInfo = stakers[_stakerAddress];
+        (totalPendingRewards,) = calculateRewards(stakerInfo, _stakerAddress);
     }
 
+
+    /// @notice Returns the staker's information.
+    /// @param _stakerAddress The address of the staker.
+    /// @return StakerInfo The staker's information.
+    function getStakerInfo(address _stakerAddress) external view returns(StakerInfo memory) {
+        StakerInfo memory stakerInfo = stakers[_stakerAddress];
+        return stakerInfo;
+    }
+
+
+
+    /// @dev Returns the last time rewards can be applicable.
+    /// @return The last time rewards can be applicable, which is the minimum of current block timestamp and the rewards end time.
+    function _lastApplicableTime() internal view returns (uint256) {
+        return Math.min(block.timestamp, rewardsEndTime);
+    }
+
+    /// @notice Pauses the contract functionalities.
+    /// @dev Can only be called by the contract owner.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses the contract functionalities.
+    /// @dev Can only be called by the contract owner.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+
+    /// @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract. Called by {upgradeToAndCall}.
+    function _authorizeUpgrade(address) internal override onlyOwner() {}
+
+}

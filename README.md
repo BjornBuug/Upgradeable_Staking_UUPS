@@ -1,6 +1,9 @@
-# Property Titles Recorder
+# Staking Smart Contract
 
-The Property Titles Recorder is a decentralized application (Dapp) built on the Sepolia blockchain Testnet that enables secure and transparent recording of property titles. Using ERC721 Smart Contracts, this Dapp allows users to tokenize property titles into NFTs (Non-Fungible Tokens) along with associated metadata. Furthermore, it leverages IPFS for immutable and decentralized storage of essential documents. One standout feature is its ability to filter titles based on the instrument number. The Dapp also includes a role-based access control system, allowing authorized users to approve property titles after verifying associated documents and information.
+This repository contains a UUPS (Universal Upgradeable Proxy Standard) compliant smart contract that enables users to stake, unstake, and claim tokens. It's written in Solidity and includes features for pausability and upgradability.
+
+
+Overview
 
 <a href="https://ibb.co/0rc1Cw0"><img src="https://i.ibb.co/Wf67kTr/Propertytitle.png" alt="Propertytitle" border="0"></a>
 
