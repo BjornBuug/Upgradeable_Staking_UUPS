@@ -34,8 +34,9 @@ contract UpgradeableStaking is Initializable,
     //***************************** ERROR ************/
     error ERR_CANNOT_BE_ZERO();
     error ERR_CANNOT_UPDATE_REWARDS_YET();
-    error ERR_CALLER_NOT_STAKER;
-
+    error ERR_CALLER_NOT_STAKER();
+    error ERR_ADDRESS_CANNOT_BE_ZERO();
+    error ERR_AMOUNT_BELOW_MIN();
 
 
     //***************************** EVENTS ************/
@@ -63,7 +64,7 @@ contract UpgradeableStaking is Initializable,
     }
 
     mapping (address => StakerInfo) public stakers;
-    
+
     uint256 public rewardsPerToken;
     uint256 public rewardsEndTime;
     uint256 public rewardsStartTime;
@@ -71,7 +72,7 @@ contract UpgradeableStaking is Initializable,
     uint256 public rewardRate;
     
     mapping (address => uint256) public userRewardsPerTokensPaid;
-    
+    uint public constant MIN_AMOUNT_TO_STAKE = 10_000_000_000_000_000_000; // Min amount 10 token to stake
 
 
     // ///@dev To prevent an attacker to Initialize the contract when the contract is deployed and unInitilize
@@ -82,9 +83,23 @@ contract UpgradeableStaking is Initializable,
 
 
     /// @dev Modifier to check if the caller is a staker.
-    modifier IsStaker() {
+    modifier onlyStakers() {
         if(stakers[msg.sender].staker != msg.sender) {
             revert ERR_CALLER_NOT_STAKER();
+        }
+        _;
+    }
+
+    modifier nonZeroValue(uint256 _amount) {
+        if(_amount <= 0) {
+            revert ERR_CANNOT_BE_ZERO();
+        }
+        _;
+    }
+
+    modifier IsZeroAddress() {
+        if(msg.sender == address(0)) {
+            revert ERR_ADDRESS_CANNOT_BE_ZERO();
         }
         _;
     }
@@ -100,16 +115,17 @@ contract UpgradeableStaking is Initializable,
     }
 
 
-
-
     /// @notice Stakes tokens into the contract.
     /// @param _amount The amount of tokens to stake.
-     function stake(uint256 _amount) external whenNotPaused {
+     function Stake(uint256 _amount) external 
+                                    whenNotPaused
+                                    IsZeroAddress
+                                     {
         
-        if(_amount <= 0) {
-            revert ERR_CANNOT_BE_ZERO();
+        if(_amount < MIN_AMOUNT_TO_STAKE) {
+            revert ERR_AMOUNT_BELOW_MIN();
         }
-
+                                       
         StakerInfo storage stakerInfo = stakers[msg.sender];
         
         rewardsHandler(stakerInfo);
@@ -125,16 +141,12 @@ contract UpgradeableStaking is Initializable,
     }
     
 
-
-
     /// @notice Unstakes tokens
     /// @param _amount The amount of tokens to unstake.
-     function Unstake(uint256 _amount) external whenNotPaused IsStaker {
+     function Unstake(uint256 _amount) external whenNotPaused 
+                                                 onlyStakers
+                                                 nonZeroValue(_amount) {
         
-        if(_amount <= 0) {
-            revert ERR_CANNOT_BE_ZERO();
-        }
-
         StakerInfo storage stakerInfo = stakers[msg.sender];
 
         uint256 amountStaked = stakerInfo.amountStaked;
@@ -153,7 +165,7 @@ contract UpgradeableStaking is Initializable,
 
     /// @notice Claim Rewards
     /// @param _amount The amount of tokens to unstake.
-     function Claim(uint256 _amount) external IsStaker {
+     function Claim(uint256 _amount) external onlyStakers nonZeroValue(_amount) {
         
         if(_amount <= 0) {
             revert ERR_CANNOT_BE_ZERO();
@@ -174,10 +186,10 @@ contract UpgradeableStaking is Initializable,
 
 
 
-    /// @notice Updates the rewards rate and duration.
+    /// @notice Set & Updates the rewards rate and duration.
     /// @param _amount The total rewards amount.
     /// @param duration The rewards duration in seconds.
-   function updateRewards(uint256 _amount, uint256 duration) external onlyOwner {
+   function setRewards(uint256 _amount, uint256 duration) external onlyOwner {
         
         // Check if the contract isn't giving rewards any more to be able to start a new update;
         if(rewardsEndTime > block.timestamp) {
@@ -222,14 +234,12 @@ contract UpgradeableStaking is Initializable,
         stakerInfo.lastTimestamp += block.timestamp;
     }
 
-
-
+    
     /// @dev Calculates rewards for a given staker.
     /// @param stakerInfo The staker's information.
     /// @param _staker The address of the staker.
-    /// @return totalPendingRewards, newRewardsPerToken The total pending rewards and the new rewards per token for the staker.
     function calculateRewards(StakerInfo storage stakerInfo, address _staker) 
-                              internal returns(uint256 totalPendingRewards, uint256 newRewardsPerToken) {
+                              internal view returns(uint256 totalPendingRewards, uint256 newRewardsPerToken) {
 
             if(totalStakedTokens > 0) {
 
