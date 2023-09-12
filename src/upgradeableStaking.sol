@@ -37,6 +37,7 @@ contract UpgradeableStaking is Initializable,
     error ERR_CALLER_NOT_STAKER();
     error ERR_ADDRESS_CANNOT_BE_ZERO();
     error ERR_AMOUNT_BELOW_MIN();
+    error ERR_NOT_ENOUGH_BALANCE();
 
 
     //***************************** EVENTS ************/
@@ -140,20 +141,25 @@ contract UpgradeableStaking is Initializable,
 
     }
     
-
+    // Check the Staker want to unstack more than they own.
     /// @notice Unstakes tokens
     /// @param _amount The amount of tokens to unstake.
-     function Unstake(uint256 _amount) external whenNotPaused 
-                                                 onlyStakers
+     function Unstake(uint256 _amount) external 
+                                             onlyStakers
                                                  nonZeroValue(_amount) {
         
         StakerInfo storage stakerInfo = stakers[msg.sender];
 
         uint256 amountStaked = stakerInfo.amountStaked;
 
+        if(_amount > amountStaked) {
+            revert ERR_NOT_ENOUGH_BALANCE();
+        }
+
         rewardsHandler(stakerInfo);
 
         amountStaked-= _amount;
+        stakerInfo.amountStaked =  amountStaked;
         totalStakedTokens -= _amount;
 
         token.safeTransfer(msg.sender, _amount);
@@ -166,10 +172,6 @@ contract UpgradeableStaking is Initializable,
     /// @notice Claim Rewards
     /// @param _amount The amount of tokens to unstake.
      function Claim(uint256 _amount) external onlyStakers nonZeroValue(_amount) {
-        
-        if(_amount <= 0) {
-            revert ERR_CANNOT_BE_ZERO();
-        }
 
         StakerInfo storage stakerInfo = stakers[msg.sender];
 
@@ -207,20 +209,18 @@ contract UpgradeableStaking is Initializable,
 
    }
     
-
-
     /// @dev Handles rewards calculations.
     /// @param stakerInfo The staker's information.
     /// @return totalPendingRewards The total pending rewards for the staker.
     function rewardsHandler(StakerInfo storage stakerInfo) internal returns(uint256 totalPendingRewards) {
-        // Check if the the the contract has staked tokens
+        // Check if the contract has staked tokens
         if(totalStakedTokens > 0) {
             // Create a function to calculate the user pending rewards and new rewards per tokens since the last time the user checked.
             (uint256 _totalPendingReward, uint256 newRewardsPerToken) = calculateRewards(stakerInfo, msg.sender);
 
             // Update the total rewards tokens for msg.sender
             totalPendingRewards = _totalPendingReward;
-
+            
             // Update the new rewards per tokens
             rewardsPerToken = newRewardsPerToken;
 

@@ -11,11 +11,15 @@ import "../src/FaucetTokens.sol";
 contract UpgradeableStakingTest is Test {
     using stdStorage for StdStorage;
 
+    // Stake [x]
+    // Unstake []
+    // 
 
     // Initial Faucet Supply
     uint256 public constant INITIAL_TOKENS_SUPPLY = 100000000 ether;
     uint256 public constant COOL_DOWN_PERIOD = 60;
     uint256 public constant AMOUNT_TO_WITHDRAW = 10 ether;
+    uint256 public constant REWARD_DURATION = 1000000; /// @dev 1000000 seconds = 11.5 days
 
 
     // Create an instances of the contracts
@@ -66,6 +70,7 @@ contract UpgradeableStakingTest is Test {
             assertEq(stakerInfo.staker, ALICE);
             assertEq(stakerInfo.amountStaked, amount);
             assertEq(token.balanceOf(address(staking)), amount);
+            assertEq(staking.totalStakedTokens(), amount);
         vm.stopPrank();
     }
 
@@ -74,7 +79,13 @@ contract UpgradeableStakingTest is Test {
         vm.startPrank(ADMIN);
             staking.pause();
         vm.stopPrank();
-        test_Stake();
+
+        // // Try to Stake when the contract is paused
+        // test_Stake();
+        // vm.expectRevert("Pausable: paused");
+
+        // Try to UnStake when the contract is paused
+        test_Unstake();
         vm.expectRevert("Pausable: paused");
     }
 
@@ -97,6 +108,78 @@ contract UpgradeableStakingTest is Test {
             vm.expectRevert(UpgradeableStaking.ERR_ADDRESS_CANNOT_BE_ZERO.selector);
         vm.stopPrank();
     }
+
+
+    /****************** Unstake Units Test  *********************** */
+    // Unstake
+    function test_Unstake() public {
+        test_Stake();
+        vm.startPrank(ALICE);
+
+            // Get Alice Balance Before unstaking:
+            uint256 AliceBalBef = token.balanceOf(address(ALICE));
+            console2.log("Alice balance before", AliceBalBef);
+
+            // Amount to Stake
+            uint256 amount = 100 ether;
+            // Unstake
+            staking.Unstake(amount);
+
+            // Get Staker Info
+            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+
+            // Get Alice Balance After unstaking:
+            uint256 AliceBalAft = token.balanceOf(address(ALICE));
+
+            console2.log("Alice balance After", AliceBalAft);
+            assertEq(AliceBalBef + 100 ether, AliceBalAft);
+            assertEq(stakerInfo.amountStaked, 0);
+            assertEq(token.balanceOf(address(staking)), 0);
+            assertEq(staking.totalStakedTokens(), 0);
+        vm.stopPrank();
+    }
+
+
+
+    function test_revert_Caller_Not_Staker() public {
+        test_Stake();
+        vm.startPrank(BOB);
+            staking.Unstake(100 ether);
+            vm.expectRevert(UpgradeableStaking.ERR_CALLER_NOT_STAKER.selector);
+        vm.stopPrank();
+    }
+
+
+    function test_revert_Unstake_Zero_Value() public {
+        test_Stake();
+        vm.startPrank(ALICE);
+            staking.Unstake(0 ether);
+            vm.expectRevert(UpgradeableStaking.ERR_CANNOT_BE_ZERO.selector);
+        vm.stopPrank();
+    }
+
+
+    function test_revert_Unstake_Not_Enough_Balance() public {
+        test_Stake();
+        vm.startPrank(ALICE);
+            staking.Unstake(200 ether);
+            vm.expectRevert(UpgradeableStaking.ERR_NOT_ENOUGH_BALANCE.selector);
+        vm.stopPrank();
+    }
+
+    /********  Claim Unit test *********/
+    // STOPED HERE
+    function test_Claim() external {
+        test_Stake();
+        test_Unstake();
+        vm.startPrank(ALICE);
+        uint256 claimedAmount = 100 ether;
+        skip(REWARD_DURATION);
+            staking.Claim(claimedAmount);
+        StakerInfo storage stakerInfo = stakers[msg.sender];
+        vm.stopPrank();
+    }
+
 
     
 
