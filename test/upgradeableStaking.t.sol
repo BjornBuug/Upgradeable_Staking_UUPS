@@ -19,8 +19,8 @@ contract UpgradeableStakingTest is Test {
     uint256 public constant INITIAL_TOKENS_SUPPLY = 100000000 ether;
     uint256 public constant COOL_DOWN_PERIOD = 60;
     uint256 public constant AMOUNT_TO_WITHDRAW = 10 ether;
-    uint256 public constant REWARD_DURATION = 1000000; /// @dev 1000000 seconds = 11.5 days
-
+    uint256 public constant REWARD_DURATION = 864000; /// @dev 1000000 seconds = 10 days
+    uint256 public constant REWARD_AMOUNT = 10000 ether;
 
     // Create an instances of the contracts
     UpgradeableStaking public staking;
@@ -53,7 +53,8 @@ contract UpgradeableStakingTest is Test {
         console2.log("ALICE balance", token.balanceOf(ALICE));
 
         staking.initilize(IERC20Upgradeable(address(token)));
-        staking.setRewards(AMOUNT_TO_WITHDRAW, COOL_DOWN_PERIOD);
+        staking.setRewards(REWARD_AMOUNT, REWARD_DURATION);
+
         vm.stopPrank();
     }
 
@@ -119,7 +120,9 @@ contract UpgradeableStakingTest is Test {
             // Get Alice Balance Before unstaking:
             uint256 AliceBalBef = token.balanceOf(address(ALICE));
             console2.log("Alice balance before", AliceBalBef);
-
+            
+            skip(REWARD_DURATION);
+            
             // Amount to Stake
             uint256 amount = 100 ether;
             // Unstake
@@ -129,8 +132,9 @@ contract UpgradeableStakingTest is Test {
             UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
 
             // Get Alice Balance After unstaking:
-            uint256 AliceBalAft = token.balanceOf(address(ALICE));
 
+            console2.log("Rewardds_Amount", stakerInfo.DebtRewards);
+            uint256 AliceBalAft = token.balanceOf(address(ALICE));
             console2.log("Alice balance After", AliceBalAft);
             assertEq(AliceBalBef + 100 ether, AliceBalAft);
             assertEq(stakerInfo.amountStaked, 0);
@@ -167,16 +171,36 @@ contract UpgradeableStakingTest is Test {
         vm.stopPrank();
     }
 
+
+
     /********  Claim Unit test *********/
-    // STOPED HERE
+    // // STOPED HERE
     function test_Claim() external {
-        test_Stake();
         test_Unstake();
         vm.startPrank(ALICE);
-        uint256 claimedAmount = 100 ether;
-        skip(REWARD_DURATION);
-            staking.Claim(claimedAmount);
-        StakerInfo storage stakerInfo = stakers[msg.sender];
+
+            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            
+            // Get Alice's Rewards Debt before claim.
+            uint256 aliceRewards = stakerInfo.DebtRewards;
+            console2.log("Alice's rewards before Claim", aliceRewards);
+
+            // Get Alice's rewards token balance before Claim
+            uint256 tokenBalBef = token.balanceOf(ALICE);
+            console2.log("Alice's token balance before Claim", tokenBalBef);
+
+            staking.Claim();
+            
+            UpgradeableStaking.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
+
+            uint256 rewardsAft = stakerInfor.DebtRewards;
+            console2.log("Alice's rewards after Claim", rewardsAft);
+
+            // Get Alice's rewards token balance before Claim
+            uint256 tokenBalAft = token.balanceOf(ALICE);
+            console2.log("Alice's token balance before Claim", tokenBalAft);
+            
+            // StakerInfo storage stakerInfo = stakers[msg.sender];
         vm.stopPrank();
     }
 

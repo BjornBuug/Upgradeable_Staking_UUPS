@@ -60,7 +60,7 @@ contract UpgradeableStaking is Initializable,
     struct StakerInfo {
         address staker;
         uint256 amountStaked;
-        uint256 lastTimestamp;
+        uint256 lastRewardTimestamp;
         uint256 DebtRewards;
     }
 
@@ -121,7 +121,7 @@ contract UpgradeableStaking is Initializable,
      function Stake(uint256 _amount) external 
                                     whenNotPaused
                                     IsZeroAddress
-                                     {
+                                    {
         
         if(_amount < MIN_AMOUNT_TO_STAKE) {
             revert ERR_AMOUNT_BELOW_MIN();
@@ -170,8 +170,7 @@ contract UpgradeableStaking is Initializable,
 
 
     /// @notice Claim Rewards
-    /// @param _amount The amount of tokens to unstake.
-     function Claim(uint256 _amount) external onlyStakers nonZeroValue(_amount) {
+     function Claim() external onlyStakers {
 
         StakerInfo storage stakerInfo = stakers[msg.sender];
 
@@ -216,10 +215,10 @@ contract UpgradeableStaking is Initializable,
         // Check if the contract has staked tokens
         if(totalStakedTokens > 0) {
             // Create a function to calculate the user pending rewards and new rewards per tokens since the last time the user checked.
-            (uint256 _totalPendingReward, uint256 newRewardsPerToken) = calculateRewards(stakerInfo, msg.sender);
+            (uint256 _totalPendingRewards, uint256 newRewardsPerToken) = calculateRewards(stakerInfo, msg.sender);
 
             // Update the total rewards tokens for msg.sender
-            totalPendingRewards = _totalPendingReward;
+            totalPendingRewards = _totalPendingRewards;
             
             // Update the new rewards per tokens
             rewardsPerToken = newRewardsPerToken;
@@ -230,8 +229,8 @@ contract UpgradeableStaking is Initializable,
         lastUpdateTime = _lastApplicableTime();
 
         // Update staker info
-        stakerInfo.amountStaked += totalPendingRewards;
-        stakerInfo.lastTimestamp += block.timestamp;
+        stakerInfo.DebtRewards += totalPendingRewards;
+        stakerInfo.lastRewardTimestamp = block.timestamp;
     }
 
     
@@ -284,8 +283,8 @@ contract UpgradeableStaking is Initializable,
     /// @param _stakerAddress The address of the staker.
     /// @return StakerInfo The staker's information.
     function getStakerInfo(address _stakerAddress) external view returns(StakerInfo memory) {
-        StakerInfo memory stakerInfo = stakers[_stakerAddress];
-        return stakerInfo;
+        return stakers[_stakerAddress];
+
     }
 
 
