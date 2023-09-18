@@ -61,7 +61,7 @@ contract UpgradeableStaking is Initializable,
         address staker;
         uint256 amountStaked;
         uint256 lastRewardTimestamp;
-        uint256 DebtRewards;
+        uint256 debtRewards;
     }
 
     mapping (address => StakerInfo) public stakers;
@@ -141,6 +141,8 @@ contract UpgradeableStaking is Initializable,
 
     }
     
+
+
     // Check the Staker want to unstack more than they own.
     /// @notice Unstakes tokens
     /// @param _amount The amount of tokens to unstake.
@@ -174,11 +176,11 @@ contract UpgradeableStaking is Initializable,
 
         StakerInfo storage stakerInfo = stakers[msg.sender];
 
-        uint256 claimedRewards = stakerInfo.DebtRewards;
+        uint256 claimedRewards = stakerInfo.debtRewards;
 
         rewardsHandler(stakerInfo);
 
-        claimedRewards = 0;
+        stakerInfo.debtRewards = 0;
 
         _mint(msg.sender, claimedRewards);
 
@@ -187,27 +189,27 @@ contract UpgradeableStaking is Initializable,
 
 
 
-    /// @notice Set & Updates the rewards rate and duration.
+    /// @notice Set & Updates the rewards rate and _duration.
     /// @param _amount The total rewards amount.
-    /// @param duration The rewards duration in seconds.
-   function setRewards(uint256 _amount, uint256 duration) external onlyOwner {
+    /// @param _duration The rewards duration in seconds.
+   function setRewards(uint256 _amount, uint256 _duration) external onlyOwner {
         
         // Check if the contract isn't giving rewards any more to be able to start a new update;
         if(rewardsEndTime > block.timestamp) {
             revert ERR_CANNOT_UPDATE_REWARDS_YET();
         }
 
-        if(_amount <= 0 || duration <= 0) {
+        if(_amount <= 0 || _duration <= 0) {
             revert ERR_CANNOT_BE_ZERO();
         }
 
-        rewardsEndTime = block.timestamp + duration;
-        rewardRate = _amount / duration;
+        rewardsEndTime = block.timestamp + _duration;
+        rewardRate = _amount / _duration;
         lastUpdateTime = block.timestamp;
         rewardsStartTime = block.timestamp;
-
    }
     
+
     /// @dev Handles rewards calculations.
     /// @param stakerInfo The staker's information.
     /// @return totalPendingRewards The total pending rewards for the staker.
@@ -229,7 +231,7 @@ contract UpgradeableStaking is Initializable,
         lastUpdateTime = _lastApplicableTime();
 
         // Update staker info
-        stakerInfo.DebtRewards += totalPendingRewards;
+        stakerInfo.debtRewards += totalPendingRewards;
         stakerInfo.lastRewardTimestamp = block.timestamp;
     }
 
@@ -262,8 +264,7 @@ contract UpgradeableStaking is Initializable,
             // How much new rewards Bob has earned on his staked since last time he checked (rewards rate, last timeStamp)
             // Or how much new rewards Bob has earned.
             totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) * 1 ether;
-
-            }                                                                   
+            }                                                                  
 
     }
 

@@ -73,6 +73,7 @@ contract UpgradeableStakingTest is Test {
             assertEq(token.balanceOf(address(staking)), amount);
             assertEq(staking.totalStakedTokens(), amount);
         vm.stopPrank();
+
     }
 
     //************* EXPECT REVERT ************/
@@ -123,8 +124,9 @@ contract UpgradeableStakingTest is Test {
             
             skip(REWARD_DURATION);
             
-            // Amount to Stake
+            // Amount to Unstake
             uint256 amount = 100 ether;
+
             // Unstake
             staking.Unstake(amount);
 
@@ -133,7 +135,7 @@ contract UpgradeableStakingTest is Test {
 
             // Get Alice Balance After unstaking:
 
-            console2.log("Rewardds_Amount", stakerInfo.DebtRewards);
+            console2.log("Rewardds_Amount", stakerInfo.debtRewards);
             uint256 AliceBalAft = token.balanceOf(address(ALICE));
             console2.log("Alice balance After", AliceBalAft);
             assertEq(AliceBalBef + 100 ether, AliceBalAft);
@@ -174,7 +176,6 @@ contract UpgradeableStakingTest is Test {
 
 
     /********  Claim Unit test *********/
-    // // STOPED HERE
     function test_Claim() external {
         test_Unstake();
         vm.startPrank(ALICE);
@@ -182,26 +183,57 @@ contract UpgradeableStakingTest is Test {
             UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
             
             // Get Alice's Rewards Debt before claim.
-            uint256 aliceRewards = stakerInfo.DebtRewards;
+            uint256 aliceRewards = stakerInfo.debtRewards;
             console2.log("Alice's rewards before Claim", aliceRewards);
 
-            // Get Alice's rewards token balance before Claim
-            uint256 tokenBalBef = token.balanceOf(ALICE);
-            console2.log("Alice's token balance before Claim", tokenBalBef);
+            uint256 aliceRewardsBalance = staking.balanceOf(ALICE);
 
+            console.log("Alice balance in staking contracts", aliceRewardsBalance);
+      
             staking.Claim();
+
+            uint256 aliceRewardsBalanceAft = staking.balanceOf(ALICE);
             
+            console.log("Alice balance in staking contracts after Claim", aliceRewardsBalanceAft);
+
             UpgradeableStaking.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
 
-            uint256 rewardsAft = stakerInfor.DebtRewards;
-            console2.log("Alice's rewards after Claim", rewardsAft);
+            uint256 rewardsAft = stakerInfor.debtRewards;
 
-            // Get Alice's rewards token balance before Claim
-            uint256 tokenBalAft = token.balanceOf(ALICE);
-            console2.log("Alice's token balance before Claim", tokenBalAft);
+            console2.log("Alice's rewards after Claim", rewardsAft);
             
-            // StakerInfo storage stakerInfo = stakers[msg.sender];
+            assertEq(rewardsAft, 0);
+            assertEq(stakerInfor.lastRewardTimestamp, block.timestamp);
+            assertEq(aliceRewardsBalanceAft, 9999999999999999936000000000000000000000 ether);
         vm.stopPrank();
+    }
+
+
+    function test_revert_Caller_Not_Claimer() public {
+        test_Unstake();
+        vm.startPrank(BOB);
+            staking.Claim();
+            vm.expectRevert(UpgradeableStaking.ERR_CALLER_NOT_STAKER.selector);
+        vm.stopPrank();
+    }
+
+
+    function test_setRewards() public {
+        vm.startPrank(ADMIN);
+        uint256 rewardsEndTime = staking.rewardsEndTime();
+        uint256 rewardsRate = staking.rewardRate();
+        uint256 lastUpdateRate = staking.lastUpdateTime();
+        uint256 rewardsStarttime = staking.rewardsStartTime();
+        
+        staking.setRewards(REWARD_AMOUNT, REWARD_DURATION);
+
+        assertEq(rewardsEndTime, block.timestamp + REWARD_DURATION);
+        assertEq(rewardsRate, REWARD_AMOUNT /  REWARD_DURATION);
+        assertEq(lastUpdateRate, block.timestamp);
+        assertEq(rewardsStarttime, block.timestamp);
+
+        vm.stopPrank();
+
     }
 
 
