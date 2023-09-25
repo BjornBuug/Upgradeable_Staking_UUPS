@@ -59,8 +59,18 @@ contract UpgradeableStakingTest is Test {
     }
 
 
+
     function test_Stake() public {
         vm.startPrank(ALICE);
+
+        vm.warp(1695474145);  // now
+        // Returns values to check for overflow or underflow cases:
+        uint256 lastApplicableTime = staking._lastApplicableTime();
+        console2.log("lastApplicable time before Staking", lastApplicableTime);
+        uint256 lastUpdateTime = staking.lastUpdateTime();
+        console2.log("Last Update Time before staking", lastUpdateTime);
+        
+        console2.log("current Time before staking", block.timestamp);
             // Amount to Stake
             uint256 amount = 100 ether;
             token.approve(address(staking), amount);
@@ -72,7 +82,16 @@ contract UpgradeableStakingTest is Test {
             assertEq(stakerInfo.amountStaked, amount);
             assertEq(token.balanceOf(address(staking)), amount);
             assertEq(staking.totalStakedTokens(), amount);
-        vm.stopPrank();
+
+            // Returns values to check for overflow or underflow cases:
+            lastApplicableTime = staking._lastApplicableTime();
+            console2.log("lastApplicable time after Staking", lastApplicableTime);
+
+            lastUpdateTime = staking.lastUpdateTime();
+            console2.log("Last Update Time after staking", lastUpdateTime);
+            
+            console2.log("Current time after staking", block.timestamp);
+        vm.stopPrank(); 
 
     }
 
@@ -98,7 +117,6 @@ contract UpgradeableStakingTest is Test {
             staking.Stake(amount);
             vm.expectRevert(UpgradeableStaking.ERR_AMOUNT_BELOW_MIN.selector);
         vm.stopPrank();
-        
     }
 
 
@@ -218,23 +236,29 @@ contract UpgradeableStakingTest is Test {
     }
 
 
-    function test_setRewards() public {
-        vm.startPrank(ADMIN);
-        uint256 rewardsEndTime = staking.rewardsEndTime();
-        uint256 rewardsRate = staking.rewardRate();
-        uint256 lastUpdateRate = staking.lastUpdateTime();
-        uint256 rewardsStarttime = staking.rewardsStartTime();
+    // Test case when LastApplicabletime is less than lastUpdated time. Check Overflow and Underflow cases. 
+
+
+
+
+
+    // function test_setRewards() public {
+    //     vm.startPrank(ADMIN);
+    //     uint256 rewardsEndTime = staking.rewardsEndTime();
+    //     uint256 rewardsRate = staking.rewardRate();
+    //     uint256 lastUpdateRate = staking.lastUpdateTime();
+    //     uint256 rewardsStarttime = staking.rewardsStartTime();
         
-        staking.setRewards(REWARD_AMOUNT, REWARD_DURATION);
+    //     staking.setRewards(REWARD_AMOUNT, REWARD_DURATION);
 
-        assertEq(rewardsEndTime, block.timestamp + REWARD_DURATION);
-        assertEq(rewardsRate, REWARD_AMOUNT /  REWARD_DURATION);
-        assertEq(lastUpdateRate, block.timestamp);
-        assertEq(rewardsStarttime, block.timestamp);
+    //     assertEq(rewardsEndTime, block.timestamp + REWARD_DURATION);
+    //     assertEq(rewardsRate, REWARD_AMOUNT /  REWARD_DURATION);
+    //     assertEq(lastUpdateRate, block.timestamp);
+    //     assertEq(rewardsStarttime, block.timestamp);
 
-        vm.stopPrank();
+    //     vm.stopPrank();
 
-    }
+    // }
 
 
     

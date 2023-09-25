@@ -38,6 +38,7 @@ contract UpgradeableStaking is Initializable,
     error ERR_ADDRESS_CANNOT_BE_ZERO();
     error ERR_AMOUNT_BELOW_MIN();
     error ERR_NOT_ENOUGH_BALANCE();
+    error ERR_
 
 
     //***************************** EVENTS ************/
@@ -108,7 +109,7 @@ contract UpgradeableStaking is Initializable,
 
     /// @notice Initializes the staking contract.
     /// @param _token The ERC20 token for staking.
-    function initilize(IERC20Upgradeable _token) external initializer {  
+    function initilize(IERC20Upgradeable _token) initializer public {  
         __Ownable_init();
         __ERC20Pausable_init();
         __ERC20_init("Staking TK", "TTK");
@@ -236,6 +237,8 @@ contract UpgradeableStaking is Initializable,
     }
 
     
+    /// @notice newRewardsPerToken is Dynamic which means it's updated based on the amount of staked tokens.
+    /// @notice newRewardsToken represents the the amount of tokens the user has accumuled and didn't claimed yet. 
     /// @dev Calculates rewards for a given staker.
     /// @param stakerInfo The staker's information.
     /// @param _staker The address of the staker.
@@ -248,23 +251,28 @@ contract UpgradeableStaking is Initializable,
                             the last applicable time.
                          - * 1 ether is to add more zero (18 decimals)
                          - / totalStaked gives the per-tokens reward
-                         - rewardsPerTokens + "adding the newly calculated per-token rewards" to the existing per token rewards;        
+                         - rewardsPerToken + "adding the newly calculated per-token rewards" to the existing per token rewards;        
             */  
             // How much new reward is earn per tokens since our "last Applicable" "time" & "rate update"
             // or How much more rewards each token should get
-            newRewardsPerToken = rewardsPerToken + (( rewardRate * (_lastApplicableTime() - lastUpdateTime)) * 1 ether) / totalStakedTokens;
-
-
+            // Check overflow and underflow checks
+            if(_lastApplicableTime() >= lastUpdateTime) {
+                newRewardsPerToken = rewardsPerToken + (( rewardRate * (_lastApplicableTime() - lastUpdateTime)) * 1 ether) / totalStakedTokens;
+                       
             /***
             *  - newRewardPerToken - userRewardPerTokenPaid[_staker]: How much reward per token Bob has earned since the last time he checked.
             *  - stakerInfo.stakedAmount * : Multiplties Bob's staked tokens by the newRewardPerToken to find out Bob's total new rewards.
             *  - divide it by 1 ether to back down to normal number because we multiple above by 1 ether
             */
 
+            require(newRewardsPerToken >= userRewardsPerTokensPaid[_staker], "Error: Negative rewards");
+
             // How much new rewards Bob has earned on his staked since last time he checked (rewards rate, last timeStamp)
             // Or how much new rewards Bob has earned.
             totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) * 1 ether;
-            }                                                                  
+            
+            } 
+        }                                                                  
 
     }
 
@@ -285,16 +293,19 @@ contract UpgradeableStaking is Initializable,
     /// @return StakerInfo The staker's information.
     function getStakerInfo(address _stakerAddress) external view returns(StakerInfo memory) {
         return stakers[_stakerAddress];
-
     }
 
 
 
     /// @dev Returns the last time rewards can be applicable.
     /// @return The last time rewards can be applicable, which is the minimum of current block timestamp and the rewards end time.
-    function _lastApplicableTime() internal view returns (uint256) {
+    function _lastApplicableTime() public view returns (uint256) {
         return Math.min(block.timestamp, rewardsEndTime);
     }
+
+    // function min(uint x, uint y) internal pure returns (uint z) {
+    //     z = x < y ? x : y;
+    // }
 
     /// @notice Pauses the contract functionalities.
     /// @dev Can only be called by the contract owner.
