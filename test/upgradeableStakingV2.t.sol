@@ -7,9 +7,9 @@ import "forge-std/console2.sol";
 
 
 import "../src/FaucetTokens.sol";
-import "../src/UpgradeableStaking.sol";
+import "./contracts/upgradeableStakingV2.sol";
 
-contract UpgradeableStakingTest is Test {
+contract upgradeableStakingV2V2Test is Test {
     using stdStorage for StdStorage;
 
     // Stake [x]
@@ -24,7 +24,7 @@ contract UpgradeableStakingTest is Test {
     uint256 public constant REWARD_AMOUNT = 10 ether;
 
     // Create an instances of the contracts
-    UpgradeableStaking public staking;
+    upgradeableStakingV2 public staking;
     FaucetTokens public token;
     
     address constant public ALICE = address(0x1);
@@ -35,7 +35,7 @@ contract UpgradeableStakingTest is Test {
     function setUp() public {
         vm.startPrank(ADMIN);
 
-        staking = new UpgradeableStaking();
+        staking = new upgradeableStakingV2();
 
         // Initialize the token faucet
         token = new FaucetTokens(
@@ -84,7 +84,7 @@ contract UpgradeableStakingTest is Test {
             staking.Stake(amount);
 
             // Get Staker Info
-            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
             assertEq(stakerInfo.staker, ALICE);
             assertEq(stakerInfo.amountStaked, amount);
             assertEq(token.balanceOf(address(staking)), amount);
@@ -122,7 +122,7 @@ contract UpgradeableStakingTest is Test {
             // Test below Minimum 
             uint256 amount = 0.00001 ether;
             staking.Stake(amount);
-            vm.expectRevert(UpgradeableStaking.ERR_AMOUNT_BELOW_MIN.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_AMOUNT_BELOW_MIN.selector);
         vm.stopPrank();
     }
 
@@ -132,7 +132,7 @@ contract UpgradeableStakingTest is Test {
             // Test below Minimum 
             uint256 amount = 10 ether;
             staking.Stake(amount);
-            vm.expectRevert(UpgradeableStaking.ERR_ADDRESS_CANNOT_BE_ZERO.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_ADDRESS_CANNOT_BE_ZERO.selector);
         vm.stopPrank();
     }
 
@@ -174,7 +174,7 @@ contract UpgradeableStakingTest is Test {
             staking.Unstake(amount);
 
             // Get Staker Info
-            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
 
             // Get Alice Balance After unstaking:
             console2.log("Rewardds_Amount", stakerInfo.debtRewards);
@@ -195,7 +195,7 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(BOB);
             staking.Unstake(100 ether);
-            vm.expectRevert(UpgradeableStaking.ERR_CALLER_NOT_STAKER.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_CALLER_NOT_STAKER.selector);
         vm.stopPrank();
     }
 
@@ -204,7 +204,7 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(ALICE);
             staking.Unstake(0 ether);
-            vm.expectRevert(UpgradeableStaking.ERR_CANNOT_BE_ZERO.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_CANNOT_BE_ZERO.selector);
         vm.stopPrank();
     }
 
@@ -213,7 +213,7 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(ALICE);
             staking.Unstake(200 ether);
-            vm.expectRevert(UpgradeableStaking.ERR_NOT_ENOUGH_BALANCE.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_NOT_ENOUGH_BALANCE.selector);
         vm.stopPrank();
     }
 
@@ -224,7 +224,7 @@ contract UpgradeableStakingTest is Test {
         test_Unstake();
         vm.startPrank(ALICE);
 
-            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
             
             // Get Alice's Rewards Debt before claim.
             uint256 aliceRewards = stakerInfo.debtRewards;
@@ -240,7 +240,7 @@ contract UpgradeableStakingTest is Test {
             
             console.log("Alice balance in staking contracts after Claim", aliceRewardsBalanceAft);
 
-            UpgradeableStaking.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
+            upgradeableStakingV2.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
 
             uint256 rewardsAft = stakerInfor.debtRewards;
 
@@ -257,7 +257,7 @@ contract UpgradeableStakingTest is Test {
         test_Unstake();
         vm.startPrank(BOB);
             staking.Claim();
-            vm.expectRevert(UpgradeableStaking.ERR_CALLER_NOT_STAKER.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_CALLER_NOT_STAKER.selector);
         vm.stopPrank();
     }
 

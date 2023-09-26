@@ -21,7 +21,7 @@ import "./Math.sol";
 /// @author Ouail Tayarth
 /// @dev The contract is upgradeable and includes pausability features.
 
-contract UpgradeableStaking is Initializable,
+contract UpgradeableStakingV3 is Initializable,
         OwnableUpgradeable,
         ERC20PausableUpgradeable,
         UUPSUpgradeable {
