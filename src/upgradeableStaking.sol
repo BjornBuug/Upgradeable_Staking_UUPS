@@ -38,7 +38,6 @@ contract UpgradeableStaking is Initializable,
     error ERR_ADDRESS_CANNOT_BE_ZERO();
     error ERR_AMOUNT_BELOW_MIN();
     error ERR_NOT_ENOUGH_BALANCE();
-    error ERR_
 
 
     //***************************** EVENTS ************/
@@ -282,7 +281,7 @@ contract UpgradeableStaking is Initializable,
      /// @notice Returns the total pending rewards for a staker.
     /// @param _stakerAddress The address of the staker.
     /// @return totalPendingRewards The total pending rewards for the staker.
-    function getAllPendingRewards(address _stakerAddress) external view returns(uint256 totalPendingRewards) {
+    function getAllPendingRewards(address _stakerAddress) external IsZeroAddress view returns(uint256 totalPendingRewards) {
         StakerInfo storage stakerInfo = stakers[_stakerAddress];
         (totalPendingRewards,) = calculateRewards(stakerInfo, _stakerAddress);
     }
@@ -291,7 +290,7 @@ contract UpgradeableStaking is Initializable,
     /// @notice Returns the staker's information.
     /// @param _stakerAddress The address of the staker.
     /// @return StakerInfo The staker's information.
-    function getStakerInfo(address _stakerAddress) external view returns(StakerInfo memory) {
+    function getStakerInfo(address _stakerAddress) external IsZeroAddress view returns(StakerInfo memory) {
         return stakers[_stakerAddress];
     }
 

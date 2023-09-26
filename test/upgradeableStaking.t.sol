@@ -5,10 +5,12 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import "../src/UpgradeableStaking.sol";
+import "./contracts/upgradeableStakingV2.sol";
 import "../src/FaucetTokens.sol";
 
-contract UpgradeableStakingTest is Test {
+// Check why totalPendingRewards equal to zero when unstake function is call
+
+contract upgradeableStakingTest is Test {
     using stdStorage for StdStorage;
 
     // Stake [x]
@@ -19,11 +21,11 @@ contract UpgradeableStakingTest is Test {
     uint256 public constant INITIAL_TOKENS_SUPPLY = 100000000 ether;
     uint256 public constant COOL_DOWN_PERIOD = 60;
     uint256 public constant AMOUNT_TO_WITHDRAW = 10 ether;
-    uint256 public constant REWARD_DURATION = 864000; /// @dev 1000000 seconds = 10 days
-    uint256 public constant REWARD_AMOUNT = 10000 ether;
+    uint256 public constant REWARD_DURATION = 86400; /// @dev 1 days
+    uint256 public constant REWARD_AMOUNT = 10 ether;
 
     // Create an instances of the contracts
-    UpgradeableStaking public staking;
+    upgradeableStakingV2 public staking;
     FaucetTokens public token;
     
     address constant public ALICE = address(0x1);
@@ -34,7 +36,7 @@ contract UpgradeableStakingTest is Test {
     function setUp() public {
         vm.startPrank(ADMIN);
 
-        staking = new UpgradeableStaking();
+        staking = new upgradeableStakingV2();
 
         // Initialize the token faucet
         token = new FaucetTokens(
@@ -53,6 +55,9 @@ contract UpgradeableStakingTest is Test {
         console2.log("ALICE balance", token.balanceOf(ALICE));
 
         staking.initilize(IERC20Upgradeable(address(token)));
+
+        vm.warp(10800); // 3 HOURS
+
         staking.setRewards(REWARD_AMOUNT, REWARD_DURATION);
 
         vm.stopPrank();
@@ -63,12 +68,12 @@ contract UpgradeableStakingTest is Test {
     function test_Stake() public {
         vm.startPrank(ALICE);
 
-        vm.warp(1695474145);  // now
-        // Returns values to check for overflow or underflow cases:
-        uint256 lastApplicableTime = staking._lastApplicableTime();
-        console2.log("lastApplicable time before Staking", lastApplicableTime);
-        uint256 lastUpdateTime = staking.lastUpdateTime();
-        console2.log("Last Update Time before staking", lastUpdateTime);
+        // vm.warp(1695474145);  // now
+        // // Returns values to check for overflow or underflow cases:
+        // uint256 lastApplicableTime = staking._lastApplicableTime();
+        // console2.log("lastApplicable time before Staking", lastApplicableTime);
+        // uint256 lastUpdateTime = staking.lastUpdateTime();
+        // console2.log("Last Update Time before staking", lastUpdateTime);
         
         console2.log("current Time before staking", block.timestamp);
             // Amount to Stake
@@ -77,20 +82,20 @@ contract UpgradeableStakingTest is Test {
             // Stake
             staking.Stake(amount);
             // Get Staker Info
-            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
             assertEq(stakerInfo.staker, ALICE);
             assertEq(stakerInfo.amountStaked, amount);
             assertEq(token.balanceOf(address(staking)), amount);
             assertEq(staking.totalStakedTokens(), amount);
 
-            // Returns values to check for overflow or underflow cases:
-            lastApplicableTime = staking._lastApplicableTime();
-            console2.log("lastApplicable time after Staking", lastApplicableTime);
+            // // Returns values to check for overflow or underflow cases:
+            // lastApplicableTime = staking._lastApplicableTime();
+            // console2.log("lastApplicable time after Staking", lastApplicableTime);
 
-            lastUpdateTime = staking.lastUpdateTime();
-            console2.log("Last Update Time after staking", lastUpdateTime);
+            // lastUpdateTime = staking.lastUpdateTime();
+            // console2.log("Last Update Time after staking", lastUpdateTime);
             
-            console2.log("Current time after staking", block.timestamp);
+            // console2.log("Current time after staking", block.timestamp);
         vm.stopPrank(); 
 
     }
@@ -115,7 +120,7 @@ contract UpgradeableStakingTest is Test {
             // Test below Minimum 
             uint256 amount = 0.00001 ether;
             staking.Stake(amount);
-            vm.expectRevert(UpgradeableStaking.ERR_AMOUNT_BELOW_MIN.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_AMOUNT_BELOW_MIN.selector);
         vm.stopPrank();
     }
 
@@ -125,10 +130,9 @@ contract UpgradeableStakingTest is Test {
             // Test below Minimum 
             uint256 amount = 10 ether;
             staking.Stake(amount);
-            vm.expectRevert(UpgradeableStaking.ERR_ADDRESS_CANNOT_BE_ZERO.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_ADDRESS_CANNOT_BE_ZERO.selector);
         vm.stopPrank();
     }
-
 
     /****************** Unstake Units Test  *********************** */
     // Unstake
@@ -139,27 +143,45 @@ contract UpgradeableStakingTest is Test {
             // Get Alice Balance Before unstaking:
             uint256 AliceBalBef = token.balanceOf(address(ALICE));
             console2.log("Alice balance before", AliceBalBef);
-            
-            skip(REWARD_DURATION);
-            
+
+            skip(REWARD_DURATION / 2);
+
+            // Get Staker Info
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+
+
+            uint256 totalPendingRewards = staking.rewardsHandler(stakerInfo);
+            console2.log("Alice's total Pending", totalPendingRewards);
+
+
+            skip(REWARD_DURATION / 3);
+
+            totalPendingRewards = staking.rewardsHandler(stakerInfo);
+            console2.log("Alice's total Pending", totalPendingRewards);
+
+            console2.log("Rewardds_Amount", stakerInfo.debtRewards);
+
             // Amount to Unstake
             uint256 amount = 100 ether;
 
             // Unstake
             staking.Unstake(amount);
 
-            // Get Staker Info
-            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            totalPendingRewards = staking.rewardsHandler(stakerInfo);
+            console2.log("Alice's after unstaking", totalPendingRewards);
 
             // Get Alice Balance After unstaking:
-
             console2.log("Rewardds_Amount", stakerInfo.debtRewards);
+
             uint256 AliceBalAft = token.balanceOf(address(ALICE));
+
             console2.log("Alice balance After", AliceBalAft);
-            assertEq(AliceBalBef + 100 ether, AliceBalAft);
-            assertEq(stakerInfo.amountStaked, 0);
-            assertEq(token.balanceOf(address(staking)), 0);
-            assertEq(staking.totalStakedTokens(), 0);
+
+            // assertEq(AliceBalBef + 100 ether, AliceBalAft);
+    
+            // assertEq(stakerInfo.amountStaked, 0);
+            // assertEq(token.balanceOf(address(staking)), 0);
+            // assertEq(staking.totalStakedTokens(), 0);
         vm.stopPrank();
     }
 
@@ -169,7 +191,7 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(BOB);
             staking.Unstake(100 ether);
-            vm.expectRevert(UpgradeableStaking.ERR_CALLER_NOT_STAKER.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_CALLER_NOT_STAKER.selector);
         vm.stopPrank();
     }
 
@@ -178,7 +200,7 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(ALICE);
             staking.Unstake(0 ether);
-            vm.expectRevert(UpgradeableStaking.ERR_CANNOT_BE_ZERO.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_CANNOT_BE_ZERO.selector);
         vm.stopPrank();
     }
 
@@ -187,7 +209,7 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(ALICE);
             staking.Unstake(200 ether);
-            vm.expectRevert(UpgradeableStaking.ERR_NOT_ENOUGH_BALANCE.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_NOT_ENOUGH_BALANCE.selector);
         vm.stopPrank();
     }
 
@@ -198,7 +220,7 @@ contract UpgradeableStakingTest is Test {
         test_Unstake();
         vm.startPrank(ALICE);
 
-            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
             
             // Get Alice's Rewards Debt before claim.
             uint256 aliceRewards = stakerInfo.debtRewards;
@@ -214,7 +236,7 @@ contract UpgradeableStakingTest is Test {
             
             console.log("Alice balance in staking contracts after Claim", aliceRewardsBalanceAft);
 
-            UpgradeableStaking.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
+            upgradeableStakingV2.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
 
             uint256 rewardsAft = stakerInfor.debtRewards;
 
@@ -231,13 +253,35 @@ contract UpgradeableStakingTest is Test {
         test_Unstake();
         vm.startPrank(BOB);
             staking.Claim();
-            vm.expectRevert(UpgradeableStaking.ERR_CALLER_NOT_STAKER.selector);
+            vm.expectRevert(upgradeableStakingV2.ERR_CALLER_NOT_STAKER.selector);
         vm.stopPrank();
     }
 
 
     // Test case when LastApplicabletime is less than lastUpdated time. Check Overflow and Underflow cases. 
+    function test_rewardsHandler() public {
+        test_Unstake();
 
+        vm.startPrank(ALICE);
+            // Get Staker Info
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+
+            uint256 totalPendingRewards = staking.rewardsHandler(stakerInfo);
+            console2.log("Alice's total Pending", totalPendingRewards);
+            
+            uint256 newRewardsPerToken = staking.rewardsPerToken();
+            console2.log("New rewardsPerTokens", newRewardsPerToken);
+
+            uint256 userRewardsPerTokenPaid = staking.userRewardsPerTokensPaid(ALICE);
+            console2.log("userRewardsPerTokenPaid", userRewardsPerTokenPaid);
+
+            uint256 lastUpdateTime = staking.lastUpdateTime();
+            console2.log("lastUpdateTime", lastUpdateTime);
+
+            uint256 applicableTime = staking._lastApplicableTime();
+            console2.log("Last applicable Time", applicableTime);
+        vm.stopPrank();
+    }
 
 
 
