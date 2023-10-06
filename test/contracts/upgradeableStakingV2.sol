@@ -72,6 +72,7 @@ contract upgradeableStakingV2 is Initializable,
     uint256 public rewardRate;
     
     mapping (address => uint256) public userRewardsPerTokensPaid;
+
     uint public constant MIN_AMOUNT_TO_STAKE = 10_000_000_000_000_000_000; // Min amount 10 token to stake
 
 
@@ -128,7 +129,7 @@ contract upgradeableStakingV2 is Initializable,
                                        
         StakerInfo storage stakerInfo = stakers[msg.sender];
         
-        rewardsHandler(stakerInfo);
+        rewardsHandler();
 
         stakerInfo.staker = msg.sender;
         stakerInfo.amountStaked += _amount;
@@ -157,7 +158,7 @@ contract upgradeableStakingV2 is Initializable,
             revert ERR_NOT_ENOUGH_BALANCE();
         }
 
-        rewardsHandler(stakerInfo);
+        rewardsHandler();
 
         stakerInfo.amountStaked -= _amount;
         totalStakedTokens -= _amount;
@@ -167,16 +168,18 @@ contract upgradeableStakingV2 is Initializable,
         emit Unstaked(msg.sender, _amount, block.timestamp);
     }
 
-
-
+    
     /// @notice Claim Rewards
      function Claim() external onlyStakers {
+        
+        // Turn this into ERROR 
+        require(block.timestamp <= rewardsEndTime, "Claim is over");
 
         StakerInfo storage stakerInfo = stakers[msg.sender];
 
         uint256 claimedRewards = stakerInfo.debtRewards;
 
-        rewardsHandler(stakerInfo);
+        rewardsHandler();
 
         stakerInfo.debtRewards = 0;
 
@@ -209,13 +212,16 @@ contract upgradeableStakingV2 is Initializable,
     
     
     /// @dev Handles rewards calculations.
-    /// @param stakerInfo The staker's information.
     /// @return totalPendingRewards The total pending rewards for the staker.
-    function rewardsHandler(StakerInfo memory stakerInfo) public returns(uint256 totalPendingRewards) {
+    function rewardsHandler() public returns(uint256 totalPendingRewards) {
+
         // Check if the contract has staked tokens
         if(totalStakedTokens > 0) {
+
+            StakerInfo storage stakerInfo = stakers[msg.sender];
+            
             // Create a function to calculate the user pending rewards and new rewards per tokens since the last time the user checked.
-            (uint256 _totalPendingRewards, uint256 newRewardsPerToken) = calculateRewards(stakerInfo, msg.sender);
+            (uint256 _totalPendingRewards, uint256 newRewardsPerToken) = calculateRewards(msg.sender);
 
             // Update the total rewards tokens for msg.sender
             totalPendingRewards = _totalPendingRewards;
@@ -224,24 +230,27 @@ contract upgradeableStakingV2 is Initializable,
             rewardsPerToken = newRewardsPerToken;
 
             userRewardsPerTokensPaid[msg.sender] = rewardsPerToken; 
+
+            lastUpdateTime = _lastApplicableTime();
+
+            // Update staker info
+            stakerInfo.debtRewards += totalPendingRewards;
+            stakerInfo.lastRewardTimestamp = block.timestamp;
         }
 
-        lastUpdateTime = _lastApplicableTime();
-
-        // Update staker info
-        stakerInfo.debtRewards += totalPendingRewards;
-        stakerInfo.lastRewardTimestamp = block.timestamp;
     }
 
     
     /// @notice newRewardsPerToken is Dynamic which means it's updated based on the amount of staked tokens.
     /// @notice newRewardsToken represents the the amount of tokens the user has accumuled and didn't claimed yet. 
     /// @dev Calculates rewards for a given staker.
-    /// @param stakerInfo The staker's information.
     /// @param _staker The address of the staker.
-    function calculateRewards(StakerInfo memory stakerInfo, address _staker) 
+    function calculateRewards(address _staker) 
                               public view returns(uint256 totalPendingRewards, uint256 newRewardsPerToken) {
+            
             if(totalStakedTokens > 0) {
+
+            StakerInfo storage stakerInfo = stakers[msg.sender];
 
             /*** @notice - (rewardRate * (_lastApplicableTime() - lastUpdateTime)): Calculate how much rewards has been accumulated since
                             the last applicable time.
@@ -278,9 +287,8 @@ contract upgradeableStakingV2 is Initializable,
      /// @notice Returns the total pending rewards for a staker.
     /// @param _stakerAddress The address of the staker.
     /// @return totalPendingRewards The total pending rewards for the staker.
-    function getAllPendingRewards(address _stakerAddress) external IsZeroAddress view returns(uint256 totalPendingRewards) {
-        StakerInfo storage stakerInfo = stakers[_stakerAddress];
-        (totalPendingRewards,) = calculateRewards(stakerInfo, _stakerAddress);
+    function getAllPendingRewards(address _stakerAddress) external onlyStakers IsZeroAddress view returns(uint256 totalPendingRewards) {
+        (totalPendingRewards,) = calculateRewards( _stakerAddress);
     }
 
 

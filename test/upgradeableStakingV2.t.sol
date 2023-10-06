@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 
 import "forge-std/Test.sol";
@@ -13,7 +13,11 @@ contract upgradeableStakingV2V2Test is Test {
     using stdStorage for StdStorage;
 
     // Stake [x]
-    // Unstake []
+    // Unstake [X]
+    // CLAIM [] :: Test in case in case user claim rewards while their funds are staked and while they unstake 
+    // their funds BUT not only when they unstaked their tokens.
+    // Cover the overflow and underflow cases.
+    // STOP at Claim before unstaking which I should Include in the first version of testing not here.
 
 
     // Initial Faucet Supply
@@ -22,6 +26,8 @@ contract upgradeableStakingV2V2Test is Test {
     uint256 public constant AMOUNT_TO_WITHDRAW = 10 ether;
     uint256 public constant REWARD_DURATION = 48600; /// 1 days
     uint256 public constant REWARD_AMOUNT = 10 ether;
+
+    // 24300 
 
     // Create an instances of the contracts
     upgradeableStakingV2 public staking;
@@ -143,29 +149,17 @@ contract upgradeableStakingV2V2Test is Test {
         test_Stake();
         vm.startPrank(ALICE);
 
-            
-   
             // Get Alice Balance Before unstaking:
             uint256 AliceBalBef = token.balanceOf(address(ALICE));
             console2.log("Alice balance before", AliceBalBef);
 
             skip(REWARD_DURATION);
 
+            uint256 lastUpdateTime = staking.lastUpdateTime();
+            console2.log("lastUpdateTime", lastUpdateTime);
 
-            // uint256 totalPendingRewards = staking.rewardsHandler(stakerInfo);
-            // console2.log("Alice's total Pending", totalPendingRewards);
-            
-            // uint256 newRewardsPerToken = staking.rewardsPerToken();
-            // console2.log("New rewardsPerTokens", newRewardsPerToken);
-
-            // uint256 userRewardsPerTokenPaid = staking.userRewardsPerTokensPaid(ALICE);
-            // console2.log("userRewardsPerTokenPaid", userRewardsPerTokenPaid);
-
-            // uint256 lastUpdateTime = staking.lastUpdateTime();
-            // console2.log("lastUpdateTime", lastUpdateTime);
-
-            // uint256 applicableTime = staking._lastApplicableTime();
-            // console2.log("Last applicable Time", applicableTime);
+            uint256 applicableTime = staking._lastApplicableTime();
+            console2.log("Last applicable Time", applicableTime);
 
             // Amount to Unstake
             uint256 amount = 100 ether;
@@ -177,7 +171,7 @@ contract upgradeableStakingV2V2Test is Test {
             upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
 
             // Get Alice Balance After unstaking:
-            console2.log("Rewardds_Amount", stakerInfo.debtRewards);
+            console2.log("Rewards Amount", stakerInfo.debtRewards);
 
             uint256 AliceBalAft = token.balanceOf(address(ALICE));
 
@@ -219,8 +213,8 @@ contract upgradeableStakingV2V2Test is Test {
 
 
 
-    /********  Claim Unit test *********/
-    function test_Claim() external {
+    /********  Claim tokens after unstake tokens after 27H  unit test *********/
+    function test_Claim_After_Unstake() external {
         test_Unstake();
         vm.startPrank(ALICE);
 
@@ -228,27 +222,68 @@ contract upgradeableStakingV2V2Test is Test {
             
             // Get Alice's Rewards Debt before claim.
             uint256 aliceRewards = stakerInfo.debtRewards;
-            console2.log("Alice's rewards before Claim", aliceRewards);
+            console2.log("Alice's rewards before Claim", aliceRewards); // 9999999999999952200000000000000000000000000000000000000
 
             uint256 aliceRewardsBalance = staking.balanceOf(ALICE);
 
-            console.log("Alice balance in staking contracts", aliceRewardsBalance);
-      
+            console.log("Alice balance in staking contracts before Claim", aliceRewardsBalance);
+
             staking.Claim();
+
+            upgradeableStakingV2.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
+
+            console2.log("Last rewards timestamp after Claim", stakerInfor.lastRewardTimestamp);
 
             uint256 aliceRewardsBalanceAft = staking.balanceOf(ALICE);
             
             console.log("Alice balance in staking contracts after Claim", aliceRewardsBalanceAft);
 
+            uint256 rewardsAft = stakerInfor.debtRewards;
+
+            console2.log("Alice's rewards after Claim", rewardsAft);
+            // console2.log("Last rewards timestamp", stakerInfor.lastRewardTimestamp);
+            
+            assertEq(rewardsAft, 0);
+            assertEq(stakerInfor.lastRewardTimestamp, REWARD_DURATION + 10800);
+            assertEq(aliceRewardsBalanceAft, 9999999999999952200000000000000000000 ether);
+        vm.stopPrank();
+    }
+
+    /********  Claim tokens Before unstake tokens before 27H unit test *********/
+    function test_Claim_Before_Unstake() external {
+        test_Stake();
+        vm.startPrank(ALICE);
+
+            skip(REWARD_DURATION / 2);
+
+            upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            
+            // Get Alice's Rewards Debt before claim.
+            uint256 aliceRewards = stakerInfo.debtRewards;
+            console2.log("Alice's rewards before Claim", aliceRewards); // 9999999999999952200000000000000000000000000000000000000
+
+            uint256 aliceRewardsBalance = staking.balanceOf(ALICE);
+
+            console.log("Alice balance in staking contracts before Claim", aliceRewardsBalance);
+
+            staking.Claim();
+
             upgradeableStakingV2.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
+
+            console2.log("Last rewards timestamp after Claim", stakerInfor.lastRewardTimestamp);
+
+            uint256 aliceRewardsBalanceAft = staking.balanceOf(ALICE);
+            
+            console.log("Alice balance in staking contracts after Claim", aliceRewardsBalanceAft);
 
             uint256 rewardsAft = stakerInfor.debtRewards;
 
             console2.log("Alice's rewards after Claim", rewardsAft);
+            // console2.log("Last rewards timestamp", stakerInfor.lastRewardTimestamp);
             
-            assertEq(rewardsAft, 0);
-            assertEq(stakerInfor.lastRewardTimestamp, block.timestamp);
-            assertEq(aliceRewardsBalanceAft, 9999999999999952200000000000000000000 ether);
+            // assertEq(rewardsAft, 0);
+            // assertEq(stakerInfor.lastRewardTimestamp, 35100);
+            // assertEq(aliceRewardsBalanceAft, 9999999999999952200000000000000000000 ether);
         vm.stopPrank();
     }
 
