@@ -14,6 +14,7 @@ contract UpgradeableStakingTest is Test {
 
     // Stake [x]
     // Unstake []
+    // Back here to fix the Error where the user get zero rewards before unstaking(Must follow transaction traces + the update state for each function to indentify from where we get the error)
 
 
     // Initial Faucet Supply
@@ -48,7 +49,7 @@ contract UpgradeableStakingTest is Test {
         vm.label(BOB, "BOB");
         vm.label(ADMIN, "ADMIN");
 
-        token.transfer(address(ALICE), 1000 ether);
+        token.transfer(address(ALICE), 100 ether);
         token.transfer(address(BOB), 1000 ether);
         
         console2.log("ALICE balance", token.balanceOf(ALICE));
@@ -83,8 +84,13 @@ contract UpgradeableStakingTest is Test {
             // Stake
             staking.Stake(amount);
 
+            skip(REWARD_DURATION);
+
             // Get Staker Info
             UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+
+            console2.log("Debt Rewards from stake", stakerInfo.debtRewards); // returns zero
+
             assertEq(stakerInfo.staker, ALICE);
             assertEq(stakerInfo.amountStaked, amount);
             assertEq(token.balanceOf(address(staking)), amount);
@@ -143,14 +149,11 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(ALICE);
 
-            
-   
             // Get Alice Balance Before unstaking:
             uint256 AliceBalBef = token.balanceOf(address(ALICE));
             console2.log("Alice balance before", AliceBalBef);
 
             skip(REWARD_DURATION);
-
 
             // uint256 totalPendingRewards = staking.rewardsHandler(stakerInfo);
             // console2.log("Alice's total Pending", totalPendingRewards);
@@ -220,7 +223,7 @@ contract UpgradeableStakingTest is Test {
 
 
     /********  Claim Unit test *********/
-    function test_Claim() external {
+    function test_Claim() public {
         test_Unstake();
         vm.startPrank(ALICE);
 
@@ -228,6 +231,7 @@ contract UpgradeableStakingTest is Test {
             
             // Get Alice's Rewards Debt before claim.
             uint256 aliceRewards = stakerInfo.debtRewards;
+
             console2.log("Alice's rewards before Claim", aliceRewards);
 
             uint256 aliceRewardsBalance = staking.balanceOf(ALICE);

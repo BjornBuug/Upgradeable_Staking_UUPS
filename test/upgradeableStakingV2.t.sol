@@ -14,10 +14,11 @@ contract upgradeableStakingV2V2Test is Test {
 
     // Stake [x]
     // Unstake [X]
-    // CLAIM [] :: Test in case in case user claim rewards while their funds are staked and while they unstake 
+    // CLAIM []: Test in case a user claim rewards while their funds are staked and while they unstake 
     // their funds BUT not only when they unstaked their tokens.
     // Cover the overflow and underflow cases.
     // STOP at Claim before unstaking which I should Include in the first version of testing not here.
+    // STOP AT the upgreadableStaking where I wrote dow a note about the next move.
 
 
     // Initial Faucet Supply
@@ -153,7 +154,7 @@ contract upgradeableStakingV2V2Test is Test {
             uint256 AliceBalBef = token.balanceOf(address(ALICE));
             console2.log("Alice balance before", AliceBalBef);
 
-            skip(REWARD_DURATION);
+            skip(REWARD_DURATION); // SKIP DURATION
 
             uint256 lastUpdateTime = staking.lastUpdateTime();
             console2.log("lastUpdateTime", lastUpdateTime);
@@ -166,6 +167,7 @@ contract upgradeableStakingV2V2Test is Test {
 
             // Unstake
             staking.Unstake(amount);
+            
 
             // Get Staker Info
             upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
@@ -222,11 +224,14 @@ contract upgradeableStakingV2V2Test is Test {
             
             // Get Alice's Rewards Debt before claim.
             uint256 aliceRewards = stakerInfo.debtRewards;
+            
             console2.log("Alice's rewards before Claim", aliceRewards); // 9999999999999952200000000000000000000000000000000000000
 
             uint256 aliceRewardsBalance = staking.balanceOf(ALICE);
 
-            console.log("Alice balance in staking contracts before Claim", aliceRewardsBalance);
+            console.log("Alice balance in staking contract before Claim", aliceRewardsBalance);
+
+            console.log("---------------------------______-----------------------------------");
 
             staking.Claim();
 
@@ -236,11 +241,12 @@ contract upgradeableStakingV2V2Test is Test {
 
             uint256 aliceRewardsBalanceAft = staking.balanceOf(ALICE);
             
-            console.log("Alice balance in staking contracts after Claim", aliceRewardsBalanceAft);
+            console.log("Alice balance in staking contract after Claim", aliceRewardsBalanceAft);
 
             uint256 rewardsAft = stakerInfor.debtRewards;
 
             console2.log("Alice's rewards after Claim", rewardsAft);
+            
             // console2.log("Last rewards timestamp", stakerInfor.lastRewardTimestamp);
             
             assertEq(rewardsAft, 0);
@@ -249,22 +255,24 @@ contract upgradeableStakingV2V2Test is Test {
         vm.stopPrank();
     }
 
+
     /********  Claim tokens Before unstake tokens before 27H unit test *********/
     function test_Claim_Before_Unstake() external {
         test_Stake();
+        
         vm.startPrank(ALICE);
-
-            skip(REWARD_DURATION / 2);
 
             upgradeableStakingV2.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
             
             // Get Alice's Rewards Debt before claim.
             uint256 aliceRewards = stakerInfo.debtRewards;
+
             console2.log("Alice's rewards before Claim", aliceRewards); // 9999999999999952200000000000000000000000000000000000000
 
             uint256 aliceRewardsBalance = staking.balanceOf(ALICE);
 
             console.log("Alice balance in staking contracts before Claim", aliceRewardsBalance);
+            console.log("--------------------------------------------------------------");
 
             staking.Claim();
 

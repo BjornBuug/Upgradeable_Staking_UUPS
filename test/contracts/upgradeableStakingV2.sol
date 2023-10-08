@@ -215,11 +215,11 @@ contract upgradeableStakingV2 is Initializable,
     /// @return totalPendingRewards The total pending rewards for the staker.
     function rewardsHandler() public returns(uint256 totalPendingRewards) {
 
+        StakerInfo storage stakerInfo = stakers[msg.sender];
+
         // Check if the contract has staked tokens
         if(totalStakedTokens > 0) {
 
-            StakerInfo storage stakerInfo = stakers[msg.sender];
-            
             // Create a function to calculate the user pending rewards and new rewards per tokens since the last time the user checked.
             (uint256 _totalPendingRewards, uint256 newRewardsPerToken) = calculateRewards(msg.sender);
 

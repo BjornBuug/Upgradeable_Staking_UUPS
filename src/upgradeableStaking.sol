@@ -38,6 +38,7 @@ contract UpgradeableStaking is Initializable,
     error ERR_ADDRESS_CANNOT_BE_ZERO();
     error ERR_AMOUNT_BELOW_MIN();
     error ERR_NOT_ENOUGH_BALANCE();
+    error ERR_FROM_CALCULATION();
 
 
     //***************************** EVENTS ************/
@@ -270,7 +271,8 @@ contract UpgradeableStaking is Initializable,
             // Or how much new rewards Bob has earned.
             totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) * 1 ether;
             
-            } 
+            }
+            else revert ERR_FROM_CALCULATION();
         }                                                                  
 
     }
