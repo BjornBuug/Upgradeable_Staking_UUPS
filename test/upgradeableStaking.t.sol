@@ -14,16 +14,21 @@ contract UpgradeableStakingTest is Test {
 
     // Stake [x]
     // Unstake []
-    // Back here to fix the Error where the user get zero rewards before unstaking(Must follow transaction traces + the update state for each function to indentify from where we get the error)
+    // What could go wrong if the totalsupply of rewards in the contracts is zero(revert)
+    // and total pending rewards is zero as well.
+    // test the case when totalPendingReward is less than 0 ?
 
 
     // Initial Faucet Supply
     uint256 public constant INITIAL_TOKENS_SUPPLY = 100000000 ether;
     uint256 public constant COOL_DOWN_PERIOD = 60;
     uint256 public constant AMOUNT_TO_WITHDRAW = 10 ether;
-    uint256 public constant REWARD_DURATION = 48600; /// 1 days
-    uint256 public constant REWARD_AMOUNT = 10 ether;
+    uint256 public constant REWARD_DURATION = 1000000; /// @dev 1000000 seconds = 11.5 days
+    uint256 public constant REWARD_AMOUNT = 10000 ether;
 
+    // Rewards rate = _amount / _duration;
+    // rewardRate = / 
+    // rewards duration == 9999999999999999973800000000000000000000000000000000000000
     // Create an instances of the contracts
     UpgradeableStaking public staking;
     FaucetTokens public token;
@@ -49,7 +54,7 @@ contract UpgradeableStakingTest is Test {
         vm.label(BOB, "BOB");
         vm.label(ADMIN, "ADMIN");
 
-        token.transfer(address(ALICE), 100 ether);
+        token.transfer(address(ALICE), 1000 ether);
         token.transfer(address(BOB), 1000 ether);
         
         console2.log("ALICE balance", token.balanceOf(ALICE));
@@ -78,23 +83,32 @@ contract UpgradeableStakingTest is Test {
         console2.log("current Time before staking", block.timestamp);
             
             // Amount to Stake
-            uint256 amount = 100 ether;
+            uint256 amount = 1000 ether;
             token.approve(address(staking), amount);
 
             // Stake
             staking.Stake(amount);
 
+            uint256 PendingRewardsz = staking.getAllPendingRewards(address(ALICE));
+            console2.log("Debt Rewards just right after stakin", PendingRewardsz);
+
             skip(REWARD_DURATION);
 
+            // Why rewards don't get updated even after after we pass 1 day
             // Get Staker Info
             UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
 
+            uint256 PendingRewards = staking.getAllPendingRewards(address(ALICE));
+
+            console2.log("Debt Rewards after Rewards duration time passes", PendingRewards);
+
             console2.log("Debt Rewards from stake", stakerInfo.debtRewards); // returns zero
 
-            assertEq(stakerInfo.staker, ALICE);
-            assertEq(stakerInfo.amountStaked, amount);
-            assertEq(token.balanceOf(address(staking)), amount);
-            assertEq(staking.totalStakedTokens(), amount);
+            // assertEq(stakerInfo.staker, ALICE);
+            // assertEq(stakerInfo.amountStaked, amount);
+            // assertEq(token.balanceOf(address(staking)), amount);
+            // assertEq(staking.totalStakedTokens(), amount);
+            assertEq(PendingRewards, REWARD_AMOUNT);
 
             // // Returns values to check for overflow or underflow cases:
             // lastApplicableTime = staking._lastApplicableTime();

@@ -38,7 +38,7 @@ contract UpgradeableStaking is Initializable,
     error ERR_ADDRESS_CANNOT_BE_ZERO();
     error ERR_AMOUNT_BELOW_MIN();
     error ERR_NOT_ENOUGH_BALANCE();
-    error ERR_FROM_CALCULATION();
+    error ERR_FROM_REWARDSCALCULATION();
 
 
     //***************************** EVENTS ************/
@@ -209,12 +209,14 @@ contract UpgradeableStaking is Initializable,
         lastUpdateTime = block.timestamp;
         rewardsStartTime = block.timestamp;
    }
+   
     
 
     /// @dev Handles rewards calculations.
     /// @param stakerInfo The staker's information.
     /// @return totalPendingRewards The total pending rewards for the staker.
     function rewardsHandler(StakerInfo storage stakerInfo) internal returns(uint256 totalPendingRewards) {
+        
         // Check if the contract has staked tokens
         if(totalStakedTokens > 0) {
             // Create a function to calculate the user pending rewards and new rewards per tokens since the last time the user checked.
@@ -267,12 +269,23 @@ contract UpgradeableStaking is Initializable,
 
             require(newRewardsPerToken >= userRewardsPerTokensPaid[_staker], "Error: Negative rewards");
 
+            
             // How much new rewards Bob has earned on his staked since last time he checked (rewards rate, last timeStamp)
             // Or how much new rewards Bob has earned.
-            totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) * 1 ether;
+            totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) / 1 ether;
+
+            uint256 contractBalance = token.balanceOf(address(this));
+
+            if(totalPendingRewards < 0) {
+               totalPendingRewards = 0;
+            } 
             
+            if (totalPendingRewards > contractBalance) {
+                totalPendingRewards = contractBalance;
             }
-            else revert ERR_FROM_CALCULATION();
+        }
+
+            else revert ERR_FROM_REWARDSCALCULATION();
         }                                                                  
 
     }
@@ -307,7 +320,7 @@ contract UpgradeableStaking is Initializable,
     // function min(uint x, uint y) internal pure returns (uint z) {
     //     z = x < y ? x : y;
     // }
-
+    
     /// @notice Pauses the contract functionalities.
     /// @dev Can only be called by the contract owner.
     function pause() external onlyOwner {
