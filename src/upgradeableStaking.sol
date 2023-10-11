@@ -258,8 +258,8 @@ contract UpgradeableStaking is Initializable,
             // How much new reward is earn per tokens since our "last Applicable" "time" & "rate update"
             // or How much more rewards each token should get
             // Check overflow and underflow checks
-            if(_lastApplicableTime() >= lastUpdateTime) {
-                newRewardsPerToken = rewardsPerToken + (( rewardRate * (_lastApplicableTime() - lastUpdateTime)) * 1 ether) / totalStakedTokens;
+            // if(_lastApplicableTime() >= lastUpdateTime) {
+            newRewardsPerToken = rewardsPerToken + (( rewardRate * (_lastApplicableTime() - lastUpdateTime)) * 1 ether) / totalStakedTokens;
                        
             /***
             *  - newRewardPerToken - userRewardPerTokenPaid[_staker]: How much reward per token Bob has earned since the last time he checked.
@@ -274,25 +274,19 @@ contract UpgradeableStaking is Initializable,
             // Or how much new rewards Bob has earned.
             totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) / 1 ether;
 
-            uint256 contractBalance = token.balanceOf(address(this));
+            // uint256 contractBalance = token.balanceOf(address(this));
 
             if(totalPendingRewards < 0) {
                totalPendingRewards = 0;
             } 
-            
-            if (totalPendingRewards > contractBalance) {
-                totalPendingRewards = contractBalance;
-            }
-        }
 
-            else revert ERR_FROM_REWARDSCALCULATION();
-        }                                                                  
+        } else revert ERR_FROM_REWARDSCALCULATION();
+    }                                                                  
 
-    }
+
 
 
     //***************  Getters    ******************/
-
      /// @notice Returns the total pending rewards for a staker.
     /// @param _stakerAddress The address of the staker.
     /// @return totalPendingRewards The total pending rewards for the staker.

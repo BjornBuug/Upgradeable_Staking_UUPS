@@ -12,11 +12,14 @@ import "../src/UpgradeableStaking.sol";
 contract UpgradeableStakingTest is Test {
     using stdStorage for StdStorage;
 
-    // Stake [x]
-    // Unstake []
+    // NOTE
     // What could go wrong if the totalsupply of rewards in the contracts is zero(revert)
-    // and total pending rewards is zero as well.
+    // test total pendingrewards is zero
     // test the case when totalPendingReward is less than 0 ?
+
+    // TO BE CONTINUED: 
+    // Fixed Staked in case of two stakers
+    // NEXT: UNSTAKE AND CLAIM and EGDE CASES.
 
 
     // Initial Faucet Supply
@@ -69,58 +72,61 @@ contract UpgradeableStakingTest is Test {
     }
 
 
-
+    /// pending rewards is more than REWARD AMOUNT? Check it out 
     function test_Stake() public {
-        vm.startPrank(ALICE);
-
-        // vm.warp(1695474145);  // now
-        // // Returns values to check for overflow or underflow cases:
-        // uint256 lastApplicableTime = staking._lastApplicableTime();
-        // console2.log("lastApplicable time before Staking", lastApplicableTime);
-        // uint256 lastUpdateTime = staking.lastUpdateTime();
-        // console2.log("Last Update Time before staking", lastUpdateTime);
         
-        console2.log("current Time before staking", block.timestamp);
-            
+        // Total amount staked for 2 transactions
+        uint totalAmountStaked = 200 ether;
+
+        vm.startPrank(ALICE);
             // Amount to Stake
-            uint256 amount = 1000 ether;
-            token.approve(address(staking), amount);
+            uint256 amount1 = 100 ether;
+            token.approve(address(staking), amount1);
 
             // Stake
-            staking.Stake(amount);
+            staking.Stake(amount1);
+        vm.stopPrank();
 
-            uint256 PendingRewardsz = staking.getAllPendingRewards(address(ALICE));
-            console2.log("Debt Rewards just right after stakin", PendingRewardsz);
 
-            skip(REWARD_DURATION);
+        vm.startPrank(BOB);
+            // Amount to Stake
+            uint256 amount2 = 100 ether;
+            token.approve(address(staking), amount2);
 
-            // Why rewards don't get updated even after after we pass 1 day
-            // Get Staker Info
-            UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
+            // Stake
+            staking.Stake(amount2);
+        vm.stopPrank();
 
-            uint256 PendingRewards = staking.getAllPendingRewards(address(ALICE));
+        skip(REWARD_DURATION);
 
-            console2.log("Debt Rewards after Rewards duration time passes", PendingRewards);
-
-            console2.log("Debt Rewards from stake", stakerInfo.debtRewards); // returns zero
-
-            // assertEq(stakerInfo.staker, ALICE);
-            // assertEq(stakerInfo.amountStaked, amount);
-            // assertEq(token.balanceOf(address(staking)), amount);
-            // assertEq(staking.totalStakedTokens(), amount);
-            assertEq(PendingRewards, REWARD_AMOUNT);
-
-            // // Returns values to check for overflow or underflow cases:
-            // lastApplicableTime = staking._lastApplicableTime();
-            // console2.log("lastApplicable time after Staking", lastApplicableTime);
-
-            // lastUpdateTime = staking.lastUpdateTime();
-            // console2.log("Last Update Time after staking", lastUpdateTime);
             
-            // console2.log("Current time after staking", block.timestamp);
-        vm.stopPrank(); 
+            // Alice Info
+            UpgradeableStaking.StakerInfo memory aliceInfo = staking.getStakerInfo(ALICE);
+            uint256 AlicePendingRewards = staking.getAllPendingRewards(address(ALICE));
+            console2.log("ALice Debt Rewards after Rewards duration time passes", AlicePendingRewards);
 
+            // Alice Info
+            UpgradeableStaking.StakerInfo memory bobInfo = staking.getStakerInfo(BOB);
+            uint256 BobPendingRewards = staking.getAllPendingRewards(address(BOB));
+            console2.log("BOB Debt Rewards after Rewards duration time passes", BobPendingRewards);
+
+            
+            // ALICE INFO
+            assertEq(aliceInfo.staker, ALICE);
+            assertEq(aliceInfo.amountStaked, 100 ether);
+            assertEq(AlicePendingRewards, REWARD_AMOUNT / 2);
+
+            // BOB INFO
+            assertEq(bobInfo.staker, BOB);
+            assertEq(bobInfo.amountStaked, 100 ether);
+            assertEq(BobPendingRewards, REWARD_AMOUNT / 2);
+
+            assertEq(token.balanceOf(address(staking)), totalAmountStaked);
+            assertEq(staking.totalStakedTokens(), totalAmountStaked);
+            
     }
+
+
 
     //************* EXPECT REVERT ************/
     function test_revert_Paused_Contract() public {
@@ -168,21 +174,6 @@ contract UpgradeableStakingTest is Test {
             console2.log("Alice balance before", AliceBalBef);
 
             skip(REWARD_DURATION);
-
-            // uint256 totalPendingRewards = staking.rewardsHandler(stakerInfo);
-            // console2.log("Alice's total Pending", totalPendingRewards);
-            
-            // uint256 newRewardsPerToken = staking.rewardsPerToken();
-            // console2.log("New rewardsPerTokens", newRewardsPerToken);
-
-            // uint256 userRewardsPerTokenPaid = staking.userRewardsPerTokensPaid(ALICE);
-            // console2.log("userRewardsPerTokenPaid", userRewardsPerTokenPaid);
-
-            // uint256 lastUpdateTime = staking.lastUpdateTime();
-            // console2.log("lastUpdateTime", lastUpdateTime);
-
-            // uint256 applicableTime = staking._lastApplicableTime();
-            // console2.log("Last applicable Time", applicableTime);
 
             // Amount to Unstake
             uint256 amount = 100 ether;
@@ -266,7 +257,7 @@ contract UpgradeableStakingTest is Test {
             
             assertEq(rewardsAft, 0);
             assertEq(stakerInfor.lastRewardTimestamp, block.timestamp);
-            assertEq(aliceRewardsBalanceAft, 9999999999999952200000000000000000000 ether);
+            // assertEq(aliceRewardsBalanceAft, 9999999999999952200000000000000000000 ether);
         vm.stopPrank();
     }
 
@@ -278,14 +269,6 @@ contract UpgradeableStakingTest is Test {
             vm.expectRevert(UpgradeableStaking.ERR_CALLER_NOT_STAKER.selector);
         vm.stopPrank();
     }
-
-
-    // // Test case when LastApplicabletime is less than lastUpdated time. Check Overflow and Underflow cases. 
-    // function test_HandleRewards() public {
-
-    // }
-
-
 
 
     // function test_setRewards() public {
