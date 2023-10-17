@@ -39,6 +39,7 @@ contract UpgradeableStaking is Initializable,
     error ERR_AMOUNT_BELOW_MIN();
     error ERR_NOT_ENOUGH_BALANCE();
     error ERR_FROM_REWARDSCALCULATION();
+    error ERR_AMOUNT_BEYOND_MAX();
 
 
     //***************************** EVENTS ************/
@@ -74,8 +75,8 @@ contract UpgradeableStaking is Initializable,
     uint256 public rewardRate;
     
     mapping (address => uint256) public userRewardsPerTokensPaid;
-    uint public constant MIN_AMOUNT_TO_STAKE = 10_000_000_000_000_000_000; // Min amount 10 token to stake
-
+    uint256 public MIN_AMOUNT_TO_STAKE = 10_000_000_000_000_000_000; 
+    uint256 public MAX_AMOUNT_TO_STAKE = 10_000_000_000_000_000_000_000;
 
     // ///@dev To prevent an attacker to Initialize the contract when the contract is deployed and unInitilize
     // /// @custom:oz-upgrades-unsafe-allow constructor
@@ -126,6 +127,11 @@ contract UpgradeableStaking is Initializable,
         
         if(_amount < MIN_AMOUNT_TO_STAKE) {
             revert ERR_AMOUNT_BELOW_MIN();
+        }
+        
+
+        if(_amount > MAX_AMOUNT_TO_STAKE) {
+            revert ERR_AMOUNT_BEYOND_MAX();
         }
                                        
         StakerInfo storage stakerInfo = stakers[msg.sender];
@@ -209,8 +215,22 @@ contract UpgradeableStaking is Initializable,
         lastUpdateTime = block.timestamp;
         rewardsStartTime = block.timestamp;
    }
+
    
-    
+   /// @notice Sets the minimum amount of rewards that can be staked.
+   /// @dev Only the owner of the contract can call this function.
+   /// @param _amount The new minimum amount of rewards to stake.
+   function setMinRewards(uint256 _amount) external onlyOwner nonZeroValue(_amount) {
+        MIN_AMOUNT_TO_STAKE = _amount;    
+   }
+
+    /// @notice Sets the maximum amount of rewards that can be staked.
+    /// @dev Only the owner of the contract can call this function.
+    /// @param _amount The new maximum amount of rewards to stake.
+    function setMaxRewards(uint256 _amount) external onlyOwner nonZeroValue(_amount) {
+        MAX_AMOUNT_TO_STAKE = _amount;    
+    }
+   
 
     /// @dev Handles rewards calculations.
     /// @param stakerInfo The staker's information.
@@ -273,7 +293,6 @@ contract UpgradeableStaking is Initializable,
             // How much new rewards Bob has earned on his staked since last time he checked (rewards rate, last timeStamp)
             // Or how much new rewards Bob has earned.
             totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) / 1 ether;
-
             // uint256 contractBalance = token.balanceOf(address(this));
 
             if(totalPendingRewards < 0) {
@@ -302,7 +321,6 @@ contract UpgradeableStaking is Initializable,
     function getStakerInfo(address _stakerAddress) external IsZeroAddress view returns(StakerInfo memory) {
         return stakers[_stakerAddress];
     }
-
 
 
     /// @dev Returns the last time rewards can be applicable.

@@ -16,7 +16,7 @@ contract UpgradeableStakingTest is Test {
     // Fixed Staked in case of two stakers
     // NEXT: UNSTAKE AND CLAIM [x]
     // EGDE CASES [x]
-    // 
+    // DOUBLE CHECK OVERFLOW AND UNDERFLOW IN THE REWARDS CALCULATIONS;
 
 
     // Initial Faucet Supply
