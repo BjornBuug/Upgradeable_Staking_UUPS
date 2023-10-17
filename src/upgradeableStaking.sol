@@ -113,7 +113,7 @@ contract UpgradeableStaking is Initializable,
         __Ownable_init();
         __ERC20Pausable_init();
         __ERC20_init("Staking TK", "TTK");
-        token = _token;
+        token = _token;  
     }
 
 
@@ -325,6 +325,12 @@ contract UpgradeableStaking is Initializable,
     /// @dev Can only be called by the contract owner.
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /// @dev TotalSupply
+    function _totalSupply() external view returns(uint256) {
+        uint totalSupplyF = totalSupply();
+        return totalSupplyF;
     }
 
 
