@@ -14,7 +14,7 @@ import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable
 import "./Math.sol";
 
 
-
+/// Consider adding NFT to the staking system
 
 /// @title Staking Smart Contract
 /// @notice A UUPS (Universal Upgradeable Proxy Standard) compliant smart contract that enables users to stake, unstake, and claim tokens.
@@ -78,7 +78,7 @@ contract UpgradeableStaking is Initializable,
     uint256 public MIN_AMOUNT_TO_STAKE = 10_000_000_000_000_000_000; 
     uint256 public MAX_AMOUNT_TO_STAKE = 10_000_000_000_000_000_000_000;
 
-    // ///@dev To prevent an attacker to Initialize the contract when the contract is deployed and unInitilize
+    // // ///@dev To prevent an attacker to Initialize the contract when the contract is deployed and unInitilize
     // /// @custom:oz-upgrades-unsafe-allow constructor
     // constructor() {
     //     _disableInitializers();
@@ -150,7 +150,6 @@ contract UpgradeableStaking is Initializable,
     
 
 
-    // Check the Staker want to unstack more than they own.
     /// @notice Unstakes tokens
     /// @param _amount The amount of tokens to unstake.
      function Unstake(uint256 _amount) external 
@@ -214,6 +213,8 @@ contract UpgradeableStaking is Initializable,
         rewardRate = _amount / _duration;
         lastUpdateTime = block.timestamp;
         rewardsStartTime = block.timestamp;
+        
+        // Add event here
    }
 
    
@@ -275,21 +276,28 @@ contract UpgradeableStaking is Initializable,
                          - / totalStaked gives the per-tokens reward
                          - rewardsPerToken + "adding the newly calculated per-token rewards" to the existing per token rewards;        
             */  
-            // How much new reward is earn per tokens since our "last Applicable" "time" & "rate update"
+            // How much new reward earned per tokens since our "last Applicable" "time" & "rate update"
             // or How much more rewards each token should get
             // Check overflow and underflow checks
             // if(_lastApplicableTime() >= lastUpdateTime) {
             newRewardsPerToken = rewardsPerToken + (( rewardRate * (_lastApplicableTime() - lastUpdateTime)) * 1 ether) / totalStakedTokens;
-                       
+
+
             /***
             *  - newRewardPerToken - userRewardPerTokenPaid[_staker]: How much reward per token Bob has earned since the last time he checked.
             *  - stakerInfo.stakedAmount * : Multiplties Bob's staked tokens by the newRewardPerToken to find out Bob's total new rewards.
             *  - divide it by 1 ether to back down to normal number because we multiple above by 1 ether
             */
 
-            require(newRewardsPerToken >= userRewardsPerTokensPaid[_staker], "Error: Negative rewards");
 
+            // If I keep this condition, it will revert when newRewardsPerTokens are less than userRewardsPerTokensPaid
+            // The questions is: when this will occur...
+            // Let figure this out:
+            // This might fail if userRewardsPerTokensPaid it's at it initial state 0 
+            // and when newRewardsPertoken is first calculated for that staker
+            require(newRewardsPerToken >= userRewardsPerTokensPaid[_staker], "Error: Negative rewards");
             
+
             // How much new rewards Bob has earned on his staked since last time he checked (rewards rate, last timeStamp)
             // Or how much new rewards Bob has earned.
             totalPendingRewards = (stakerInfo.amountStaked * (newRewardsPerToken - userRewardsPerTokensPaid[_staker])) / 1 ether;

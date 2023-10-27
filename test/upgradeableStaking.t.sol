@@ -17,6 +17,7 @@ contract UpgradeableStakingTest is Test {
     // NEXT: UNSTAKE AND CLAIM [x]
     // EGDE CASES [x]
     // DOUBLE CHECK OVERFLOW AND UNDERFLOW IN THE REWARDS CALCULATIONS;
+    // Require is bypassed in calculate rewards, values returns 0, expect Revet shouldn't revert but PASS.
 
 
     // Initial Faucet Supply
@@ -76,13 +77,22 @@ contract UpgradeableStakingTest is Test {
     function test_Stake() public {
         
         vm.startPrank(ALICE);
+            // uint256 userRewardsPerTokensBefore = staking.userRewardsPerTokensPaid(address(ALICE));
+            // console2.log("userRewardsPerTokensBefore ", userRewardsPerTokensBefore);
+
             // Amount to Stake
             uint256 amount1 = 100 ether;
             token.approve(address(staking), amount1);
 
             // Stake
-                staking.Stake(amount1);
+            staking.Stake(amount1);
 
+            // skip(REWARD_DURATION);
+            
+            // uint256 userRewardsPerTokensAfter = staking.userRewardsPerTokensPaid(address(ALICE));
+            // console2.log("userRewardsPerTokensAfter ", userRewardsPerTokensAfter);
+            // console2.log("New Rewards Per Tokens", staking.rewardsPerToken());
+            // console2.log("Rewards Rate", staking.rewardRate());
 
         vm.stopPrank();
 
@@ -98,7 +108,6 @@ contract UpgradeableStakingTest is Test {
 
         skip(REWARD_DURATION);
 
-            
             // Alice Info
             UpgradeableStaking.StakerInfo memory aliceInfo = staking.getStakerInfo(ALICE);
             uint256 AlicePendingRewards = staking.getAllPendingRewards(address(ALICE));
@@ -109,7 +118,9 @@ contract UpgradeableStakingTest is Test {
             uint256 BobPendingRewards = staking.getAllPendingRewards(address(BOB));
             console2.log("BOB Debt Rewards after Rewards duration time passes", BobPendingRewards);
 
-            
+            // console2.log("New Rewards Per Tokens", staking.rewardsPerToken());
+            // console2.log("New Rewards Per Tokens", staking.totalPendingRewards());
+
             // ALICE INFO
             assertEq(aliceInfo.staker, ALICE);
             assertEq(aliceInfo.amountStaked, 100 ether);
@@ -139,6 +150,7 @@ contract UpgradeableStakingTest is Test {
         // Try to UnStake when the contract is paused
         test_Unstake();
         vm.expectRevert("Pausable: paused");
+        
     }
 
     function test_revert_Stake_Amount_Below_MIN() public {
