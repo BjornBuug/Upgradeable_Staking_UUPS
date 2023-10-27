@@ -281,7 +281,11 @@ contract UpgradeableStaking is Initializable,
             // Check overflow and underflow checks
             // if(_lastApplicableTime() >= lastUpdateTime) {
             newRewardsPerToken = rewardsPerToken + (( rewardRate * (_lastApplicableTime() - lastUpdateTime)) * 1 ether) / totalStakedTokens;
-
+            // newRewardsPerToken = 0 +  
+            // rewardRate = 10000 ether / 1000000 =  10,000,000 wei and 0.01 ether
+            // 1010800 - 1010800
+            // Totalamount staker is 200 ether
+            // newRewardsPerToken = 0 + (0.01 ether * ( 1010800 - 1010800 ) * 1 ether) / 200 ether;
 
             /***
             *  - newRewardPerToken - userRewardPerTokenPaid[_staker]: How much reward per token Bob has earned since the last time he checked.

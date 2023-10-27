@@ -17,7 +17,9 @@ contract UpgradeableStakingTest is Test {
     // NEXT: UNSTAKE AND CLAIM [x]
     // EGDE CASES [x]
     // DOUBLE CHECK OVERFLOW AND UNDERFLOW IN THE REWARDS CALCULATIONS;
-    // Require is bypassed in calculate rewards, values returns 0, expect Revet shouldn't revert but PASS.
+    // Require is bypassed in calculate rewards..on Going
+    // values returns 0, (Before calling unstake)
+    // expect Revert shouldn't revert but PASSES(@note issue)
 
 
     // Initial Faucet Supply
@@ -77,8 +79,12 @@ contract UpgradeableStakingTest is Test {
     function test_Stake() public {
         
         vm.startPrank(ALICE);
-            // uint256 userRewardsPerTokensBefore = staking.userRewardsPerTokensPaid(address(ALICE));
-            // console2.log("userRewardsPerTokensBefore ", userRewardsPerTokensBefore);
+            uint256 userRewardsPerTokensBefore = staking.userRewardsPerTokensPaid(address(ALICE));
+
+            console2.log("user Rewards Per Tokens Before ", userRewardsPerTokensBefore);
+            
+            console2.log("last applicable time", staking._lastApplicableTime());
+            console2.log("rewards End Time", staking.rewardsEndTime());
 
             // Amount to Stake
             uint256 amount1 = 100 ether;
@@ -86,13 +92,6 @@ contract UpgradeableStakingTest is Test {
 
             // Stake
             staking.Stake(amount1);
-
-            // skip(REWARD_DURATION);
-            
-            // uint256 userRewardsPerTokensAfter = staking.userRewardsPerTokensPaid(address(ALICE));
-            // console2.log("userRewardsPerTokensAfter ", userRewardsPerTokensAfter);
-            // console2.log("New Rewards Per Tokens", staking.rewardsPerToken());
-            // console2.log("Rewards Rate", staking.rewardRate());
 
         vm.stopPrank();
 
@@ -118,8 +117,6 @@ contract UpgradeableStakingTest is Test {
             uint256 BobPendingRewards = staking.getAllPendingRewards(address(BOB));
             console2.log("BOB Debt Rewards after Rewards duration time passes", BobPendingRewards);
 
-            // console2.log("New Rewards Per Tokens", staking.rewardsPerToken());
-            // console2.log("New Rewards Per Tokens", staking.totalPendingRewards());
 
             // ALICE INFO
             assertEq(aliceInfo.staker, ALICE);
@@ -133,6 +130,9 @@ contract UpgradeableStakingTest is Test {
 
             assertEq(token.balanceOf(address(staking)), TOTAL_STAKED_AMOUNT);
             assertEq(staking.totalStakedTokens(), TOTAL_STAKED_AMOUNT);
+
+            uint256 userRewardsPerTokensAfter = staking.userRewardsPerTokensPaid(address(ALICE));
+            console2.log("user Rewards Per Tokens After from Stake", userRewardsPerTokensAfter);
             
     }
 
@@ -179,6 +179,15 @@ contract UpgradeableStakingTest is Test {
         test_Stake();
         vm.startPrank(ALICE);
 
+            // Below values are equal to 0 and they don't get updated until after unstaking.
+            console2.log("Rewards Per Tokens from Unstake", staking.rewardsPerToken());
+            uint256 userRewardsPerTokensBEfore = staking.userRewardsPerTokensPaid(address(ALICE));
+            console2.log("user Rewards Per Tokens BEfore from Unstake", userRewardsPerTokensBEfore);
+
+
+            console2.log("last applicable time from and before unstake", staking._lastApplicableTime());
+            console2.log("rewards End Time unstake ", staking.rewardsEndTime());
+
             // Get Alice Balance Before unstaking:
             uint256 AliceBalBef = token.balanceOf(address(ALICE));
             console2.log("Alice balance before", AliceBalBef);
@@ -202,6 +211,15 @@ contract UpgradeableStakingTest is Test {
             assertEq(stakerInfo.amountStaked, 0);
             assertEq(token.balanceOf(address(staking)), STAKED_AMOUNT_PER_STAKER);
             assertEq(staking.totalStakedTokens(), STAKED_AMOUNT_PER_STAKER);
+
+
+            console2.log("heeeeeee", staking.rewardsPerToken());
+            uint256 userRewardsPerTokensAfter = staking.userRewardsPerTokensPaid(address(ALICE));
+            console2.log("user Rewards Per Tokens After from Unstake", userRewardsPerTokensAfter);
+
+
+            console2.log("last applicable time from unstake", staking._lastApplicableTime());
+            console2.log("rewards End Time unstake ", staking.rewardsEndTime());
         vm.stopPrank();
     }
 
@@ -243,6 +261,10 @@ contract UpgradeableStakingTest is Test {
         test_Unstake();
         vm.startPrank(ALICE);
 
+            uint256 userRewardsPerTokensBefore= staking.userRewardsPerTokensPaid(address(ALICE));
+            console2.log("user Rewards Per Tokens Before ", userRewardsPerTokensBefore);
+            // 50000000000000000000 before vs 50000000000000000000 
+
             UpgradeableStaking.StakerInfo memory stakerInfo = staking.getStakerInfo(ALICE);
             
             // Get Alice's Rewards Debt before claim.
@@ -260,11 +282,14 @@ contract UpgradeableStakingTest is Test {
 
             uint256 aliceRewardsBalanceAft = staking.balanceOf(ALICE);
                         
-            console.log("Alice balance in staking contracts after Claim", aliceRewardsBalanceAft);
+            console.log("Alice balance in staking contracts BeforeClaim", aliceRewardsBalanceAft);
 
             UpgradeableStaking.StakerInfo memory stakerInfor = staking.getStakerInfo(ALICE);
 
             uint256 rewardsAft = stakerInfor.debtRewards;
+
+            uint256 userRewardsPerTokensAfter = staking.userRewardsPerTokensPaid(address(ALICE));
+            console2.log("user Rewards Per Tokens After", userRewardsPerTokensAfter);
 
             console2.log("Alice's rewards after Claim", rewardsAft);
             console2.log("Staking contract after Claim totalSupply", staking._totalSupply());
